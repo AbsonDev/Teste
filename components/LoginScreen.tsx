@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signIn, signInWithEmail, signUpWithEmail, saveFirebaseConfig } from '../services/firebase';
+import { signIn, signInWithEmail, signUpWithEmail } from '../services/firebase';
 
 export const LoginScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -9,10 +9,6 @@ export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
-
-  // Config Modal State
-  const [showConfig, setShowConfig] = useState(false);
-  const [configJson, setConfigJson] = useState('');
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -58,7 +54,7 @@ export const LoginScreen: React.FC = () => {
   const handleAuthError = (e: any) => {
       // Check specifically for API Key errors which suggest missing config
       if (e.message && e.message.includes('api-key-not-valid')) {
-          setError('A Chave de API é inválida ou não foi configurada.');
+          setError('Erro de configuração do servidor. Contate o suporte.');
       } else {
         switch (e.code) {
             case 'auth/invalid-email':
@@ -78,22 +74,9 @@ export const LoginScreen: React.FC = () => {
             case 'auth/weak-password':
             setError('A senha é muito fraca.');
             break;
-            case 'auth/api-key-not-valid':
-                setError('Configuração do Firebase inválida.');
-                break;
             default:
-            setError(`Erro: ${e.message || 'Desconhecido'}`);
+            setError(`Erro: ${e.message || 'Tente novamente mais tarde.'}`);
         }
-      }
-  };
-
-  const handleSaveConfig = () => {
-      try {
-          const config = JSON.parse(configJson);
-          if(!config.apiKey) throw new Error("Objeto de configuração inválido");
-          saveFirebaseConfig(config);
-      } catch (e) {
-          alert("JSON inválido. Certifique-se de copiar o objeto de configuração completo do Firebase Console.");
       }
   };
 
@@ -119,48 +102,7 @@ export const LoginScreen: React.FC = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <span>{error}</span>
              </div>
-             {error.includes('inválida') && (
-                 <button 
-                    onClick={() => setShowConfig(true)}
-                    className="self-end text-xs font-bold text-red-700 dark:text-red-300 underline hover:no-underline"
-                 >
-                    Configurar Projeto Firebase
-                 </button>
-             )}
           </div>
-        )}
-
-        {/* Config Modal */}
-        {showConfig && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md animate-slide-up border border-gray-100 dark:border-gray-700">
-                    <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-white">Configuração do Firebase</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                        Cole o objeto de configuração (JSON) do seu projeto Firebase abaixo. 
-                        Isso é necessário se as variáveis de ambiente não estiverem definidas.
-                    </p>
-                    <textarea 
-                        value={configJson}
-                        onChange={(e) => setConfigJson(e.target.value)}
-                        placeholder='{ "apiKey": "...", "authDomain": "..." }'
-                        className="w-full h-32 p-3 text-xs font-mono border rounded-lg bg-gray-50 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200 mb-4 focus:border-brand-500 outline-none resize-none"
-                    />
-                    <div className="flex justify-end gap-2">
-                        <button 
-                           onClick={() => setShowConfig(false)}
-                           className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                        >
-                           Cancelar
-                        </button>
-                        <button 
-                           onClick={handleSaveConfig}
-                           className="px-4 py-2 bg-brand-600 text-white text-sm font-bold rounded-lg hover:bg-brand-700"
-                        >
-                           Salvar e Recarregar
-                        </button>
-                    </div>
-                </div>
-            </div>
         )}
 
         {/* Email/Password Form */}

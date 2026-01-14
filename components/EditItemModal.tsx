@@ -92,9 +92,11 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
         onClick={onClose}
       />
       
-      {/* Modal */}
-      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-2xl pointer-events-auto animate-slide-up relative z-10">
-        <div className="flex justify-between items-center mb-4">
+      {/* Modal - Max Height and Flex for Scrolling content vs Fixed Footer */}
+      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl pointer-events-auto animate-slide-up relative z-10 flex flex-col max-h-[85vh]">
+        
+        {/* Header - Fixed */}
+        <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700 shrink-0">
           <h3 className="text-lg font-bold text-gray-800 dark:text-white">
              {isPantry ? "Editar Estoque" : "Editar Item"}
           </h3>
@@ -107,7 +109,8 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
           </button>
         </div>
 
-        <div className="space-y-4">
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto p-5 space-y-4 custom-scrollbar">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
             <input
@@ -123,7 +126,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
             /* Pantry Fields */
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1 tracking-wider">Quantidade Atual</label>
+                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1 tracking-wider">Qtd. Atual</label>
                 <input
                   type="number"
                   step="1"
@@ -133,7 +136,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                 />
               </div>
               <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1 tracking-wider">Quantidade Ideal</label>
+                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1 tracking-wider">Qtd. Ideal</label>
                 <input
                   type="number"
                   step="1"
@@ -147,7 +150,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
              /* Shopping List Fields */
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preço Unitário (R$)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preço Unit. (R$)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -162,7 +165,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                         className="flex items-center gap-1 mt-1 text-xs text-brand-600 dark:text-brand-400 cursor-pointer hover:underline"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/></svg>
-                        <span>Último pago: {formatCurrency(lastKnownPrice)}</span>
+                        <span>Último: {formatCurrency(lastKnownPrice)}</span>
                     </div>
                 )}
               </div>
@@ -181,7 +184,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Categoria</label>
-            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="grid grid-cols-2 gap-2">
               {categories.map(cat => {
                 const palette = COLOR_PALETTES.find(c => c.id === cat.colorId) || DEFAULT_COLOR;
                 const isSelected = categoryName === cat.name;
@@ -205,14 +208,20 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
               })}
             </div>
           </div>
+          
+          {/* Spacer to ensure content doesn't get hidden behind footer if scrolling */}
+          <div className="h-4"></div>
+        </div>
 
-          <button
-            onClick={handleSave}
-            disabled={!name.trim()}
-            className="w-full bg-brand-600 text-white py-3.5 rounded-xl font-semibold shadow-lg shadow-brand-200 hover:bg-brand-700 active:scale-[0.98] transition-all"
-          >
-            Salvar Alterações
-          </button>
+        {/* Footer - Fixed */}
+        <div className="p-5 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0">
+            <button
+                onClick={handleSave}
+                disabled={!name.trim()}
+                className="w-full bg-brand-600 text-white py-3.5 rounded-xl font-semibold shadow-lg shadow-brand-200 hover:bg-brand-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
+            >
+                Salvar Alterações
+            </button>
         </div>
       </div>
     </div>

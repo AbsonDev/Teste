@@ -1,4 +1,5 @@
-import { GoogleGenAI, Type, FunctionDeclaration, Chat } from "@google/genai";
+
+import { GoogleGenAI, Type, FunctionDeclaration, Chat, GenerateContentResponse } from "@google/genai";
 import { ShoppingItem } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -22,7 +23,7 @@ export const generateSmartList = async (prompt: string, availableCategories: str
     const pantryStr = pantryItems.length > 0 ? pantryItems.join(', ') : "Nothing";
 
     // Use retry logic for the API call
-    const response = await callWithRetry(() => ai.models.generateContent({
+    const response = await callWithRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: MODEL_NAME,
       contents: `
       User Request: "${prompt}".

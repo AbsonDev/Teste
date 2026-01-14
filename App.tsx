@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ShoppingList } from './components/ShoppingList';
 import { SmartInput } from './components/SmartInput';
 import { ListDrawer, ListPanel } from './components/ListDrawer';
@@ -12,6 +12,7 @@ import { ShareListModal } from './components/ShareListModal';
 import { HistoryModal } from './components/HistoryModal';
 import { AIChatModal } from './components/AIChatModal';
 import { InvitesToast } from './components/InvitesToast';
+import { ToastUndo } from './components/ToastUndo';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { generateSmartList } from './services/geminiService';
 import { 
@@ -106,6 +107,9 @@ const App: React.FC = () => {
   
   // Share Modal State
   const [shareConfig, setShareConfig] = useState<{isOpen: boolean, listId: string | null}>({ isOpen: false, listId: null });
+
+  // Undo State
+  const [undoToast, setUndoToast] = useState<{isOpen: boolean, item: ShoppingItem | null, listId: string | null}>({ isOpen: false, item: null, listId: null });
 
   // PWA State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -502,11 +506,39 @@ const App: React.FC = () => {
     await updateListInFirestore(activeList.id, { items: newItems });
     if (item && !item.completed) addHistoryLog(user.uid, 'complete_item', `Comprou "${item.name}"`);
   };
+  
   const deleteItem = async (itemId: string) => {
     if (isViewer) return;
+    
+    // 1. Capture Item for Undo
+    const itemToDelete = activeList.items.find(item => item.id === itemId);
+    if (!itemToDelete) return;
+
+    // 2. Perform Delete
     const newItems = activeList.items.filter(item => item.id !== itemId);
     await updateListInFirestore(activeList.id, { items: newItems });
+
+    // 3. Show Toast
+    setUndoToast({
+        isOpen: true,
+        item: itemToDelete,
+        listId: activeList.id
+    });
   };
+
+  const handleUndoDelete = async () => {
+    if (undoToast.item && undoToast.listId) {
+        // Find the list (it might not be active anymore, safer to find by ID)
+        const targetList = lists.find(l => l.id === undoToast.listId);
+        if (targetList) {
+             // Re-add the item. We put it back at the top or end.
+             const restoredItems = [undoToast.item, ...targetList.items];
+             await updateListInFirestore(undoToast.listId, { items: restoredItems });
+        }
+    }
+    setUndoToast({ isOpen: false, item: null, listId: null });
+  };
+
   const saveItemEdit = async (id: string, name: string, category: string, price?: number, quantity?: number, currentQuantity?: number, idealQuantity?: number) => {
     if (isViewer) return;
     const newItems = activeList.items.map(item => item.id === id ? { ...item, name, category, price, quantity, currentQuantity, idealQuantity } : item);
@@ -581,6 +613,12 @@ const App: React.FC = () => {
       )}
 
       <InvitesToast invites={invites} onAccept={(inv) => acceptInvite(inv, user.uid)} onReject={rejectInvite} />
+      <ToastUndo 
+         isOpen={undoToast.isOpen} 
+         onClose={() => setUndoToast(prev => ({ ...prev, isOpen: false }))}
+         onUndo={handleUndoDelete}
+         message="Item excluído."
+      />
       
       {notification && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-slide-up w-[90%] max-w-sm">
