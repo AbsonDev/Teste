@@ -632,14 +632,14 @@ const App: React.FC = () => {
     onToggleTheme: toggleTheme
   };
 
-  const headerBgClass = isPantry ? 'bg-orange-50/85 dark:bg-orange-900/85' : 'bg-white/85 dark:bg-gray-900/85';
-  const headerBorderClass = isPantry ? 'border-orange-100 dark:border-orange-800' : 'border-gray-100 dark:border-gray-800';
+  // Header glassmorphism background classes - updated with translucency
+  const headerBgClass = isPantry ? 'bg-orange-50/60 dark:bg-orange-950/60' : 'bg-white/60 dark:bg-gray-900/60';
 
   // Floating Action Button for Complete
   const completeButton = (!safeActiveList.archived && completedItemsCount > 0 && !isPantry && !isViewer) ? (
      <button
         onClick={() => setIsCompleteModalOpen(true)}
-        className="flex items-center gap-3 pl-4 pr-5 py-2.5 bg-green-600 text-white rounded-full shadow-lg shadow-green-200/50 hover:bg-green-700 active:scale-95 transition-all group animate-slide-up"
+        className="flex items-center gap-3 pl-4 pr-5 py-2.5 bg-green-600 text-white rounded-full shadow-lg shadow-green-200/50 hover:bg-green-700 active:scale-95 transition-all group animate-slide-up backdrop-blur-sm"
       >
         <div className="flex items-center justify-center w-5 h-5 bg-green-500 rounded-full text-green-50 border border-green-400 shadow-sm">
            <span className="text-[10px] font-bold">{completedItemsCount}</span>
@@ -685,7 +685,7 @@ const App: React.FC = () => {
       {/* Foreground Notification Toast */}
       {notification && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-slide-up w-[90%] max-w-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 border border-brand-100 dark:border-gray-700 flex gap-3 items-center cursor-pointer" onClick={() => setNotification(null)}>
+            <div className="bg-white/90 backdrop-blur-md dark:bg-gray-800/90 rounded-xl shadow-2xl p-4 border border-brand-100 dark:border-gray-700 flex gap-3 items-center cursor-pointer" onClick={() => setNotification(null)}>
                 <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
                 </div>
@@ -735,8 +735,8 @@ const App: React.FC = () => {
       {/* --- MAIN CONTENT --- */}
       <div className={`flex-1 flex flex-col h-full relative w-full ${isPantry ? 'bg-orange-50/30 dark:bg-orange-950/20' : 'bg-gray-50/50 dark:bg-gray-900/50'} ${!isOnline ? 'pt-4' : ''}`}>
         
-        {/* Header */}
-        <header className={`flex-shrink-0 backdrop-blur-md border-b px-4 py-3 z-20 transition-colors duration-300 relative ${headerBgClass} ${headerBorderClass}`}>
+        {/* Header - Glassmorphism applied */}
+        <header className={`flex-shrink-0 backdrop-blur-xl border-b border-white/20 dark:border-gray-800 px-4 py-3 z-20 transition-colors duration-300 relative ${headerBgClass} shadow-[0_4px_30px_rgba(0,0,0,0.03)]`}>
            <button
              id="menu-toggle" // Added ID for driver.js
              onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}

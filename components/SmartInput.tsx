@@ -72,14 +72,14 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
   // Usually Viewers can't complete items either, so we just return null or a simplified view
   if (isViewer) {
       return (
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-50 text-center text-gray-500 dark:text-gray-400 text-sm">
+          <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/70 dark:bg-gray-900/90 backdrop-blur-xl border-t border-white/20 dark:border-white/5 z-50 text-center text-gray-500 dark:text-gray-400 text-sm">
              Você está no modo Leitor.
           </div>
       );
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-50">
+    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/60 dark:bg-gray-900/90 backdrop-blur-xl border-t border-white/40 dark:border-white/5 z-50 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-300">
       <div className="max-w-3xl mx-auto relative">
         
         {/* Floating Action Button Slot (Positioned relative to this container) */}
@@ -89,9 +89,9 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
+        <form onSubmit={handleSubmit} className="relative flex items-center gap-3">
           <div className="relative flex-1 group">
-             <div className={`absolute inset-y-0 left-3 flex items-center pointer-events-none transition-colors duration-300 ${mode === 'smart' ? 'text-purple-500' : 'text-gray-400'}`}>
+             <div className={`absolute inset-y-0 left-3 flex items-center pointer-events-none transition-colors duration-300 ${mode === 'smart' ? 'text-purple-500 dark:text-purple-400' : 'text-gray-400 dark:text-gray-500'}`}>
                {mode === 'smart' ? <SparklesIcon /> : <PlusIcon />}
             </div>
             <input
@@ -100,12 +100,12 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={mode === 'smart' ? "Descreva o que precisa..." : "Adicionar item..."}
-              className={`w-full pl-10 pr-4 py-3.5 rounded-2xl border-2 outline-none text-base transition-all duration-300 ${
+              className={`w-full pl-10 pr-4 py-3.5 rounded-2xl border-2 outline-none text-base transition-all duration-300 shadow-inner ${
                 error 
-                  ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-400 placeholder-red-300'
+                  ? 'border-red-300 bg-red-50/80 text-red-900 dark:bg-red-900/40 dark:text-red-100 dark:border-red-800 focus:border-red-400 placeholder-red-300'
                   : mode === 'smart' 
-                    ? 'border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-800 focus:border-purple-400 text-purple-900 dark:text-purple-100 placeholder-purple-300' 
-                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:border-gray-400 focus:bg-white dark:focus:bg-gray-800 text-gray-800 dark:text-white dark:placeholder-gray-400'
+                    ? 'border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-900/30 focus:border-purple-400 dark:focus:border-purple-600 text-purple-900 dark:text-purple-100 placeholder-purple-300 dark:placeholder-purple-400/60' 
+                    : 'border-white/50 dark:border-gray-700 bg-white/50 dark:bg-gray-800/80 focus:bg-white/80 dark:focus:bg-gray-800 focus:border-gray-300 dark:focus:border-gray-600 text-gray-800 dark:text-white dark:placeholder-gray-500 backdrop-blur-sm'
               }`}
               disabled={isProcessing}
             />
@@ -113,10 +113,10 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
           <button
             type="submit"
             disabled={!inputValue.trim() || isProcessing}
-            className={`p-3.5 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm ${
+            className={`p-3.5 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg active:scale-95 ${
               mode === 'smart'
-                ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-200/50'
-                : 'bg-brand-600 hover:bg-brand-700 text-white shadow-brand-200/50'
+                ? 'bg-gradient-to-br from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-purple-200/50'
+                : 'bg-gradient-to-br from-brand-500 to-green-600 hover:from-brand-600 hover:to-green-700 text-white shadow-brand-200/50'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
              {isProcessing ? (
@@ -132,11 +132,11 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
          
          <div className="text-xs text-center mt-2 h-4 relative">
              {error ? (
-                <span className="text-red-500 font-medium animate-fade-in absolute inset-0">
+                <span className="text-red-500 dark:text-red-400 font-medium animate-fade-in absolute inset-0">
                     {error}
                 </span>
              ) : (
-                <span className={`text-purple-600 dark:text-purple-300 font-medium flex items-center justify-center gap-1 transition-all duration-300 absolute inset-0 ${mode === 'smart' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+                <span className={`text-purple-600 dark:text-purple-400 font-medium flex items-center justify-center gap-1 transition-all duration-300 absolute inset-0 ${mode === 'smart' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
                     <SparklesIcon className="w-3 h-3" /> IA detectada: criando lista inteligente...
                 </span>
              )}

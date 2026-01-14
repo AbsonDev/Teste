@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#22c55e" />
+    <meta name="theme-color" content="#22c55e" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>ListaInteligente</title>
@@ -18,6 +19,19 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+      // Prevent Flash of Unstyled Content (FOUC) / White Flash
+      try {
+        const stored = localStorage.getItem('firebase_config'); // Or user settings logic
+        // We actually store theme in firestore, but we might save a local pref too. 
+        // For now, let's respect system preference if no local override exists (or check specific storage key if you implemented one for theme)
+        // Since the React app handles auth-based theme, we default to system preference initially
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (e) {}
+
       tailwind.config = {
         darkMode: 'class',
         theme: {
@@ -35,6 +49,8 @@
                 500: '#22c55e',
                 600: '#16a34a',
                 700: '#15803d',
+                800: '#166534',
+                900: '#14532d',
               }
             },
             animation: {

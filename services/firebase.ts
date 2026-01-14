@@ -10,8 +10,6 @@ import {
 } from "firebase/auth";
 import { 
   getFirestore,
-  initializeFirestore,
-  persistentLocalCache,
   collection, 
   doc, 
   setDoc, 
@@ -90,16 +88,9 @@ const firebaseConfig = storedConfig || (hasEnvConfig ? envConfig : defaultFireba
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Initialize Firestore with Persistence (v10+)
-// Try to initialize with persistence, fallback to default if already initialized
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, { localCache: persistentLocalCache() });
-} catch (e) {
-  // If already initialized (e.g. fast refresh), use existing instance
-  firestoreDb = getFirestore(app);
-}
-export const db = firestoreDb;
+// Initialize Firestore
+// Fallback to standard getFirestore to avoid v10/v9 compatibility issues with persistentLocalCache
+export const db = getFirestore(app);
 
 // --- Messaging ---
 export const messaging = typeof window !== 'undefined' && 'serviceWorker' in navigator ? getMessaging(app) : null;
