@@ -32,7 +32,8 @@ import {
   getRemoteConfigBoolean,
   updatePriceHistory,
   requestNotificationPermission,
-  onMessageListener
+  onMessageListener,
+  logUserEvent
 } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ShoppingItem, ShoppingListGroup, Category, DEFAULT_CATEGORIES, Invite } from './types';
@@ -106,6 +107,7 @@ const App: React.FC = () => {
       // Request Notification Permission on login
       if (currentUser) {
           requestNotificationPermission(currentUser.uid);
+          logUserEvent('login', { method: currentUser.providerData[0]?.providerId || 'unknown' });
       }
     });
     return () => unsubscribe();
@@ -235,6 +237,18 @@ const App: React.FC = () => {
      if (!shareConfig.listId) return undefined;
      return lists.find(l => l.id === shareConfig.listId);
   }, [lists, shareConfig.listId]);
+
+  // Analytics: Track Screen View when active list changes
+  useEffect(() => {
+    if (activeList) {
+        const screenName = activeList.type === 'pantry' ? 'Pantry' : 'ShoppingList';
+        logUserEvent('screen_view', { 
+            firebase_screen: screenName, 
+            list_id: activeList.id,
+            is_archived: activeList.archived
+        });
+    }
+  }, [activeList?.id, activeList?.type]);
 
   const isPantry = activeList?.type === 'pantry';
 

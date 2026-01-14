@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logUserEvent } from '../services/firebase';
 
 interface CompleteListModalProps {
   isOpen: boolean;
@@ -91,7 +92,14 @@ export const CompleteListModal: React.FC<CompleteListModalProps> = ({
         </div>
 
         <button 
-          onClick={() => onConfirm(archiveList, addToPantry)}
+          onClick={() => {
+              logUserEvent('purchase_completed', { 
+                  value: totalValue, 
+                  items_count: totalItems,
+                  added_to_pantry: addToPantry
+              });
+              onConfirm(archiveList, addToPantry);
+          }}
           className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-green-200 hover:bg-green-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
         >
           <span>Confirmar</span>

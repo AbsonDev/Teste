@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { logUserEvent } from '../services/firebase';
 
 interface SmartInputProps {
   onAddSimple: (name: string) => void;
@@ -35,6 +36,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
     
     if (mode === 'smart') {
       try {
+        logUserEvent('smart_list_generated', { prompt_length: val.length });
         await onAddSmart(val);
         setInputValue(''); // Only clear if successful
       } catch (e) {

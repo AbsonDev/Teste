@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { sendInvite, subscribeToOutgoingInvites, cancelInvite, updateListMemberRole, removeListMember } from '../services/firebase';
+import { sendInvite, subscribeToOutgoingInvites, cancelInvite, updateListMemberRole, removeListMember, logUserEvent } from '../services/firebase';
 import { Invite, ShoppingListGroup, Role } from '../types';
 
 interface ShareListModalProps {
@@ -54,6 +54,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
 
     try {
       await sendInvite(list.id, list.name, email);
+      logUserEvent('invite_sent', { list_id: list.id });
       setStatus('success');
       setEmail('');
       setTimeout(() => setStatus('idle'), 3000);

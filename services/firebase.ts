@@ -1,3 +1,4 @@
+
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -8,7 +9,22 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged
 } from "firebase/auth";
+import * as firestore from "firebase/firestore";
 import { 
+  getMessaging, 
+  getToken, 
+  onMessage 
+} from "firebase/messaging";
+import { 
+  getRemoteConfig, 
+  fetchAndActivate, 
+  getBoolean 
+} from "firebase/remote-config";
+import { getAnalytics, logEvent } from "firebase/analytics";
+import { getPerformance } from "firebase/performance";
+import { ShoppingListGroup, Category, Invite, Role, HistoryLog, ShoppingItem } from "../types";
+
+const {
   getFirestore,
   collection, 
   doc, 
@@ -26,18 +42,7 @@ import {
   writeBatch, 
   arrayUnion,
   runTransaction
-} from "firebase/firestore";
-import { 
-  getMessaging, 
-  getToken, 
-  onMessage 
-} from "firebase/messaging";
-import { 
-  getRemoteConfig, 
-  fetchAndActivate, 
-  getBoolean 
-} from "firebase/remote-config";
-import { ShoppingListGroup, Category, Invite, Role, HistoryLog, ShoppingItem } from "../types";
+} = firestore;
 
 const STORAGE_KEY = 'firebase_config';
 
@@ -91,6 +96,34 @@ export const auth = getAuth(app);
 // Initialize Firestore
 // Fallback to standard getFirestore to avoid v10/v9 compatibility issues with persistentLocalCache
 export const db = getFirestore(app);
+
+// --- Analytics & Performance ---
+let analytics: any = null;
+let perf: any = null;
+
+if (typeof window !== 'undefined') {
+  try {
+    analytics = getAnalytics(app);
+    perf = getPerformance(app);
+  } catch (e) {
+    console.warn("Analytics/Perf initialization failed (likely blocked by client):", e);
+  }
+}
+
+export const logUserEvent = (eventName: string, params?: Record<string, any>) => {
+  try {
+    if (analytics) {
+      logEvent(analytics, eventName, params);
+    }
+    // Debug in Development
+    if (getEnv('NODE_ENV') === 'development') {
+      console.log(`[Analytics] ${eventName}`, params);
+    }
+  } catch (e) {
+    // Fail silently in production
+    if (getEnv('NODE_ENV') === 'development') console.error("Analytics Error:", e);
+  }
+};
 
 // --- Messaging ---
 export const messaging = typeof window !== 'undefined' && 'serviceWorker' in navigator ? getMessaging(app) : null;

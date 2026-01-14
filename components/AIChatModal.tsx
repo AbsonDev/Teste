@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { startChatSession } from '../services/geminiService';
 import { ShoppingItem, Category } from '../types';
 import { Chat } from '@google/genai';
+import { logUserEvent } from '../services/firebase';
 
 interface AIChatModalProps {
   isOpen: boolean;
@@ -83,6 +84,9 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({
     setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: userMsg }]);
     setIsLoading(true);
 
+    // Analytics Log
+    logUserEvent('ai_chat_sent', { message_length: userMsg.length });
+
     try {
       let response = await chatRef.current.sendMessage({ message: userMsg });
       
@@ -94,6 +98,8 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({
           let actionSummary = '';
 
           for (const call of functionCalls) {
+              // Analytics Log for Tool Use
+              logUserEvent('ai_function_executed', { function_name: call.name });
               
               // --- ADD ITEMS ---
               if (call.name === 'addItemsToList') {
