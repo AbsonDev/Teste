@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ShoppingItem, Category, COLOR_PALETTES, DEFAULT_COLOR } from '../types';
 import { getLastItemPrice, auth } from '../services/firebase';
@@ -6,7 +7,7 @@ interface EditItemModalProps {
   item: ShoppingItem | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string, name: string, category: string, price?: number, quantity?: number, currentQuantity?: number, idealQuantity?: number) => void;
+  onSave: (id: string, name: string, category: string, price?: number, quantity?: number, currentQuantity?: number, idealQuantity?: number, note?: string) => void;
   categories: Category[];
   isPantry?: boolean; // New prop
 }
@@ -25,6 +26,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   // Shopping List Fields
   const [price, setPrice] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const [note, setNote] = useState('');
   const [lastKnownPrice, setLastKnownPrice] = useState<number | null>(null);
 
   // Pantry Fields
@@ -37,6 +39,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
       setCategoryName(item.category || 'Outros');
       setPrice(item.price ? item.price.toString() : '');
       setQuantity(item.quantity ? item.quantity.toString() : '1');
+      setNote(item.note || '');
       setCurrentQuantity(item.currentQuantity !== undefined ? item.currentQuantity.toString() : '1');
       setIdealQuantity(item.idealQuantity !== undefined ? item.idealQuantity.toString() : '1');
       setLastKnownPrice(null);
@@ -69,7 +72,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
       const numCurrent = currentQuantity ? parseFloat(currentQuantity.replace(',', '.')) : 0;
       const numIdeal = idealQuantity ? parseFloat(idealQuantity.replace(',', '.')) : 1;
       
-      onSave(item.id, name.trim(), categoryName, numPrice, numQty, numCurrent, numIdeal);
+      onSave(item.id, name.trim(), categoryName, numPrice, numQty, numCurrent, numIdeal, note.trim());
       onClose();
     }
   };
@@ -93,7 +96,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
       />
       
       {/* Modal - Max Height and Flex for Scrolling content vs Fixed Footer */}
-      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl pointer-events-auto animate-slide-up relative z-10 flex flex-col max-h-[85vh]">
+      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl pointer-events-auto animate-slide-up relative z-10 flex flex-col max-h-[90vh]">
         
         {/* Header - Fixed */}
         <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700 shrink-0">
@@ -112,12 +115,12 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
         {/* Scrollable Content */}
         <div className="overflow-y-auto p-5 space-y-4 custom-scrollbar">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+            <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1 tracking-wider">Nome</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-brand-500 outline-none text-lg"
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-brand-500 outline-none text-lg font-medium"
               autoFocus
             />
           </div>
@@ -150,7 +153,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
              /* Shopping List Fields */
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preço Unit. (R$)</label>
+                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1 tracking-wider">Preço Unit. (R$)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -170,20 +173,31 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantidade</label>
+                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1 tracking-wider">Quantidade</label>
                 <input
                   type="number"
                   step="0.1"
                   value={quantity}
                   onChange={e => setQuantity(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-brand-500 outline-none text-lg"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-brand-500 outline-none text-lg text-center"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Categoria</label>
+            <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1 tracking-wider">Observações</label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              rows={2}
+              placeholder="Ex: Marca Nestlé, Sem Lactose, 500g..."
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-brand-500 outline-none text-sm resize-none transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2 tracking-wider">Categoria</label>
             <div className="grid grid-cols-2 gap-2">
               {categories.map(cat => {
                 const palette = COLOR_PALETTES.find(c => c.id === cat.colorId) || DEFAULT_COLOR;
@@ -200,7 +214,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                     }`}
                   >
                     <div className={`w-3 h-3 rounded-full ${palette.bg} border ${palette.border} flex-shrink-0`} />
-                    <span className={`text-sm truncate ${isSelected ? palette.text : 'text-gray-700 dark:text-gray-200'}`}>
+                    <span className={`text-xs font-bold truncate ${isSelected ? palette.text : 'text-gray-700 dark:text-gray-200'}`}>
                       {cat.name}
                     </span>
                   </button>

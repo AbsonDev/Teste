@@ -471,6 +471,12 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                         </span>
                     )}
                   </div>
+
+                  {item.note && (
+                    <p className={`text-[11px] leading-tight truncate mt-0.5 ${item.completed ? 'text-gray-300 line-through' : 'text-gray-500 dark:text-gray-400 italic'}`}>
+                        {item.note}
+                    </p>
+                  )}
                   
                   <div className="flex items-center gap-2 mt-0.5">
                     {!groupByCategory && item.category && (

@@ -581,11 +581,25 @@ const App: React.FC = () => {
     setUndoToast({ isOpen: false, item: null, listId: null });
   };
 
-  const saveItemEdit = async (id: string, name: string, category: string, price?: number, quantity?: number, currentQuantity?: number, idealQuantity?: number) => {
+  const saveItemEdit = async (
+    id: string, 
+    name: string, 
+    category: string, 
+    price?: number, 
+    quantity?: number, 
+    currentQuantity?: number, 
+    idealQuantity?: number,
+    note?: string 
+  ) => {
     if (isViewer) return;
-    const newItems = activeList.items.map(item => item.id === id ? { ...item, name, category, price, quantity, currentQuantity, idealQuantity } : item);
+    const newItems = activeList.items.map(item => 
+        item.id === id 
+        ? { ...item, name, category, price, quantity, currentQuantity, idealQuantity, note } 
+        : item
+    );
     await updateListInFirestore(activeList.id, { items: newItems });
   };
+
   const updatePantryQuantity = async (id: string, delta: number) => {
      if (isViewer) return;
      const newItems = activeList.items.map(item => {
@@ -1014,6 +1028,7 @@ const App: React.FC = () => {
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         userId={user.uid}
+        lists={lists} 
       />
 
       <AIChatModal

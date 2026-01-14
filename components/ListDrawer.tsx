@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ShoppingListGroup } from '../types';
 
 interface ListPanelProps {
@@ -50,15 +50,19 @@ export const ListPanel: React.FC<ListPanelProps> = ({
   onToggleTheme, 
   onClose 
 }) => {
+  const [isCreating, setIsCreating] = useState(false);
+  const [newListName, setNewListName] = useState('');
   
   // Filtrar listas visíveis (não arquivadas e não dispensa)
   const visibleLists = lists.filter(l => !l.archived && l.type !== 'pantry');
   const isPantryActive = lists.find(l => l.id === activeListId)?.type === 'pantry';
 
-  const handleCreateList = () => {
-    const name = prompt("Nome da nova lista:");
-    if (name) {
-        onCreate(name);
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newListName.trim()) {
+        onCreate(newListName.trim());
+        setNewListName('');
+        setIsCreating(false);
         if (onClose) onClose();
     }
   };
@@ -134,16 +138,35 @@ export const ListPanel: React.FC<ListPanelProps> = ({
          <div className="flex items-center justify-between mb-3 px-1">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Suas Listas</span>
             <button 
-                onClick={handleCreateList} 
-                className="w-6 h-6 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-700 flex items-center justify-center transition-colors"
+                onClick={() => setIsCreating(true)} 
+                className="w-6 h-6 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-700 flex items-center justify-center transition-colors shadow-sm"
                 title="Criar Nova Lista"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
          </div>
 
+         {isCreating && (
+            <form onSubmit={handleCreateSubmit} className="mb-3 animate-slide-up">
+              <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Nome da lista..."
+                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-brand-300 dark:border-brand-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none ring-2 ring-brand-100 dark:ring-brand-900/50"
+                    value={newListName}
+                    onChange={e => setNewListName(e.target.value)}
+                    onBlur={() => { if(!newListName) setIsCreating(false); }}
+                  />
+                  <button type="submit" className="p-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 shadow-md" onMouseDown={(e) => e.preventDefault()}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+              </div>
+            </form>
+         )}
+
          <div className="space-y-1">
-            {visibleLists.length === 0 ? (
+            {visibleLists.length === 0 && !isCreating ? (
                 <div className="text-center py-8 opacity-50 text-sm">Nenhuma lista criada.</div>
             ) : visibleLists.map(list => {
                 const isActive = list.id === activeListId;

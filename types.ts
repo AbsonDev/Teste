@@ -13,6 +13,9 @@ export interface ShoppingItem {
   // Pantry specific fields
   currentQuantity?: number;
   idealQuantity?: number;
+
+  // New field for specific details (brand, weight, restrictions)
+  note?: string; 
 }
 
 export interface ShoppingListGroup {
