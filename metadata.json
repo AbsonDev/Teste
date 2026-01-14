@@ -1,5 +1,7 @@
 {
   "name": "32321",
   "description": "Um aplicativo de lista de compras inteligente e mobile-first que usa IA para organizar e sugerir itens.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

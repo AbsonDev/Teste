@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+
+import React, { useMemo, useState } from 'react';
 import { ShoppingItem, Category, COLOR_PALETTES, DEFAULT_COLOR } from '../types';
 import { Reorder, useDragControls, useMotionValue, useTransform, motion, PanInfo, AnimatePresence } from "framer-motion";
 
@@ -46,6 +47,10 @@ const DragHandleIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing">
     <circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>
   </svg>
+);
+
+const ChevronDownIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m6 9 6 6 6-6"/></svg>
 );
 
 const formatCurrency = (val: number) => {
@@ -307,6 +312,14 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
   isViewer = false
 }) => {
   
+  const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
+
+  const toggleCategory = (catName: string) => {
+    setCollapsedCategories(prev => 
+      prev.includes(catName) ? prev.filter(c => c !== catName) : [...prev, catName]
+    );
+  };
+
   const getPantryStatus = (current: number, ideal: number) => {
     if (current <= 0) return { color: 'bg-red-500', border: 'border-red-500', label: 'Esgotado' };
     const ratio = current / (ideal || 1);
@@ -611,78 +624,89 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
     const groups: React.ReactNode[] = [];
     const usedItemIds = new Set<string>();
 
+    const renderGroup = (groupName: string, groupItems: ShoppingItem[], palette: any) => {
+        const isCollapsed = collapsedCategories.includes(groupName);
+        const completedCount = groupItems.filter(i => i.completed).length;
+        const totalCount = groupItems.length;
+        
+        return (
+          <motion.div layout key={groupName} className="mb-4">
+            <button 
+              onClick={() => toggleCategory(groupName)}
+              className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors group mb-2
+                ${isCollapsed ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
+            >
+               <div className="flex items-center gap-2">
+                  <motion.div 
+                    animate={{ rotate: isCollapsed ? -90 : 0 }}
+                    className="text-gray-400"
+                  >
+                     <ChevronDownIcon />
+                  </motion.div>
+                  <h4 className={`text-xs font-bold uppercase tracking-wider ${palette.text}`}>
+                    {groupName}
+                  </h4>
+               </div>
+               
+               <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${completedCount === totalCount ? 'bg-green-100 text-green-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                     {completedCount}/{totalCount}
+                  </span>
+               </div>
+            </button>
+
+            <AnimatePresence>
+              {!isCollapsed && (
+                <motion.ul 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2 overflow-hidden pl-1"
+                >
+                    <AnimatePresence initial={false} mode='popLayout'>
+                      {groupItems.map(item => (
+                          <StaticShoppingItem
+                            key={item.id}
+                            item={item}
+                            categories={categories}
+                            isPantry={isPantry}
+                            isViewer={isViewer}
+                            onToggle={onToggle}
+                            onEdit={onEdit}
+                            onDelete={onDelete}
+                            onUpdateQuantity={onUpdateQuantity}
+                            groupByCategory={groupByCategory}
+                            getPantryStatus={getPantryStatus}
+                            renderContent={renderItemContent}
+                          />
+                      ))}
+                    </AnimatePresence>
+                </motion.ul>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        );
+    }
+
     categories.forEach(cat => {
       const catItems = sortedItems.filter(i => i.category === cat.name);
       if (catItems.length > 0) {
         catItems.forEach(i => usedItemIds.add(i.id));
-        
         const palette = COLOR_PALETTES.find(p => p.id === cat.colorId) || DEFAULT_COLOR;
-        
-        groups.push(
-          <motion.div layout key={cat.id} className="mb-6">
-            <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${palette.text}`}>
-              {cat.name}
-            </h4>
-            <ul className="space-y-2">
-                <AnimatePresence initial={false} mode='popLayout'>
-                  {catItems.map(item => (
-                      <StaticShoppingItem
-                        key={item.id}
-                        item={item}
-                        categories={categories}
-                        isPantry={isPantry}
-                        isViewer={isViewer}
-                        onToggle={onToggle}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onUpdateQuantity={onUpdateQuantity}
-                        groupByCategory={groupByCategory}
-                        getPantryStatus={getPantryStatus}
-                        renderContent={renderItemContent}
-                      />
-                  ))}
-                </AnimatePresence>
-            </ul>
-          </motion.div>
-        );
+        groups.push(renderGroup(cat.name, catItems, palette));
       }
     });
 
     // Handle uncategorized
     const remainingItems = sortedItems.filter(i => !usedItemIds.has(i.id));
     if (remainingItems.length > 0) {
-      groups.push(
-        <motion.div layout key="uncategorized" className="mb-6">
-           <h4 className="text-xs font-bold uppercase tracking-wider mb-2 ml-1 text-gray-500 dark:text-gray-400">
-              Outros / Sem Categoria
-            </h4>
-            <ul className="space-y-2">
-                <AnimatePresence initial={false} mode='popLayout'>
-                  {remainingItems.map(item => (
-                      <StaticShoppingItem
-                        key={item.id}
-                        item={item}
-                        categories={categories}
-                        isPantry={isPantry}
-                        isViewer={isViewer}
-                        onToggle={onToggle}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onUpdateQuantity={onUpdateQuantity}
-                        groupByCategory={groupByCategory}
-                        getPantryStatus={getPantryStatus}
-                        renderContent={renderItemContent}
-                      />
-                  ))}
-                </AnimatePresence>
-            </ul>
-        </motion.div>
-      );
+      groups.push(renderGroup('Outros', remainingItems, { text: 'text-gray-500 dark:text-gray-400' }));
     }
 
     return <div>{groups}</div>;
 
-  }, [items, categories, groupByCategory, sortBy, isPantry, onUpdateQuantity, isViewer, onReorder]);
+  }, [items, categories, groupByCategory, sortBy, isPantry, onUpdateQuantity, isViewer, onReorder, collapsedCategories]);
 
   if (items.length === 0) {
     return (

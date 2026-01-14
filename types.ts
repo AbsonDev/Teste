@@ -43,7 +43,7 @@ export interface HistoryLog {
   id: string;
   userId: string;
   userName?: string;
-  action: 'add_item' | 'complete_item' | 'delete_item' | 'finish_list' | 'create_list' | 'update_pantry' | 'chef_cook';
+  action: 'add_item' | 'complete_item' | 'delete_item' | 'finish_list' | 'create_list' | 'update_pantry' | 'chef_cook' | 'scan_receipt';
   details: string; // "Maçã (x2)" or "Compras da Semana"
   metadata?: {
     value?: number; // For prices
@@ -59,6 +59,13 @@ export interface Recipe {
   usedIngredients: string[]; // Items found in pantry
   missingIngredients: string[]; // Items needed to buy
   instructionsShort: string; // Brief description
+}
+
+export interface ScannedItem {
+  originalName: string; // The name found in the user's list (if matched) or the raw name
+  receiptName: string; // The text found on the receipt
+  price: number;
+  confidence: 'high' | 'low';
 }
 
 export interface CategoryColor {

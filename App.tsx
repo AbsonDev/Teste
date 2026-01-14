@@ -13,6 +13,7 @@ import { ShareListModal } from './components/ShareListModal';
 import { HistoryModal } from './components/HistoryModal';
 import { AIChatModal } from './components/AIChatModal';
 import { ChefModal } from './components/ChefModal';
+import { ReceiptScannerModal } from './components/ReceiptScannerModal';
 import { InvitesToast } from './components/InvitesToast';
 import { ToastUndo } from './components/ToastUndo';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
@@ -37,7 +38,7 @@ import {
   setAnalyticsUserProperties
 } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ShoppingItem, ShoppingListGroup } from './types';
+import { ShoppingItem, ShoppingListGroup, ScannedItem } from './types';
 import { useListData } from './hooks/useListData';
 import { ITEM_DATABASE } from './data/itemDatabase';
 
@@ -108,6 +109,7 @@ const App: React.FC = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isChefModalOpen, setIsChefModalOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   
   // Share Modal State
   const [shareConfig, setShareConfig] = useState<{isOpen: boolean, listId: string | null}>({ isOpen: false, listId: null });
@@ -617,6 +619,39 @@ const App: React.FC = () => {
       await addItemsBatch(itemsToAdd);
   };
 
+  // --- Scanner Handler ---
+  const handleScanResults = async (scannedUpdates: ScannedItem[]) => {
+      if (!activeList || isViewer) return;
+
+      let updatedCount = 0;
+      const newItems = activeList.items.map(item => {
+          // Try to find a match in the scanned results
+          const match = scannedUpdates.find(scanned => 
+              item.name.toLowerCase() === scanned.originalName.toLowerCase() || 
+              scanned.originalName.toLowerCase().includes(item.name.toLowerCase())
+          );
+
+          if (match) {
+              updatedCount++;
+              return {
+                  ...item,
+                  price: match.price,
+                  completed: true // Auto check items found on receipt
+              };
+          }
+          return item;
+      });
+
+      // Optional: Add new items found on receipt that weren't on list
+      // For now, let's just update existing to be safe and avoid clutter.
+      // If we wanted to add, we'd filter scannedUpdates for those not matched.
+
+      if (updatedCount > 0) {
+          await updateListInFirestore(activeList.id, { items: newItems });
+          addHistoryLog(user.uid, 'scan_receipt', `Atualizou ${updatedCount} itens via Leitor Fiscal`);
+      }
+  };
+
   // --- Render ---
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>;
@@ -794,27 +829,38 @@ const App: React.FC = () => {
                  )
                ) : (
                  <>
-                   <button 
-                      onClick={() => isEditor && setIsBudgetModalOpen(true)}
-                      disabled={!!safeActiveList.archived || isViewer}
-                      className={`flex flex-col items-end px-3 py-1.5 rounded-lg border transition-colors ${safeActiveList.budget ? (isOverBudget ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' : 'bg-brand-50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-800') : 'bg-gray-50 dark:bg-gray-800 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                      aria-label="Definir Orçamento"
-                   >
-                      {safeActiveList.budget ? (
-                        <>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>Gasto</span>
-                          <span className={`text-sm font-bold ${isOverBudget ? 'text-red-700 dark:text-red-300' : 'text-brand-700 dark:text-brand-300'}`}>
-                            {formatCurrency(listTotal)}
-                            <span className="text-gray-400 dark:text-gray-500 font-normal text-xs ml-1">/ {formatCurrency(safeActiveList.budget)}</span>
-                          </span>
-                        </>
-                      ) : (
-                         <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                           <span className="text-xs font-medium">Orçamento</span>
-                         </div>
+                   <div className="flex items-center gap-2">
+                      {!safeActiveList.archived && !isViewer && (
+                          <button
+                            onClick={() => setIsScannerOpen(true)}
+                            className="flex items-center justify-center p-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/30 hover:text-brand-600 transition-colors"
+                            title="Ler Cupom Fiscal"
+                          >
+                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                          </button>
                       )}
-                   </button>
+                      <button 
+                          onClick={() => isEditor && setIsBudgetModalOpen(true)}
+                          disabled={!!safeActiveList.archived || isViewer}
+                          className={`flex flex-col items-end px-3 py-1.5 rounded-lg border transition-colors ${safeActiveList.budget ? (isOverBudget ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' : 'bg-brand-50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-800') : 'bg-gray-50 dark:bg-gray-800 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                          aria-label="Definir Orçamento"
+                      >
+                          {safeActiveList.budget ? (
+                            <>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>Gasto</span>
+                              <span className={`text-sm font-bold ${isOverBudget ? 'text-red-700 dark:text-red-300' : 'text-brand-700 dark:text-brand-300'}`}>
+                                {formatCurrency(listTotal)}
+                                <span className="text-gray-400 dark:text-gray-500 font-normal text-xs ml-1">/ {formatCurrency(safeActiveList.budget)}</span>
+                              </span>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                              <span className="text-xs font-medium">Orçamento</span>
+                            </div>
+                          )}
+                      </button>
+                   </div>
                    {safeActiveList.budget && (
                     <div className="w-full h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                        <div className={`h-full transition-all duration-500 ease-out rounded-full ${isOverBudget ? 'bg-red-500' : 'bg-brand-500'}`} style={{ width: `${budgetProgress}%` }} />
@@ -972,6 +1018,13 @@ const App: React.FC = () => {
         pantryItemNames={isPantry && activeList ? activeList.items.filter(i => (i.currentQuantity || 0) > 0).map(i => i.name) : []}
         onCook={handleCookRecipe}
         onShopMissing={handleShopMissing}
+      />
+
+      <ReceiptScannerModal 
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        expectedItemNames={!isPantry && activeList ? activeList.items.map(i => i.name) : []}
+        onApplyUpdates={handleScanResults}
       />
     </div>
   );
