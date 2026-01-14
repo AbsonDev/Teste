@@ -52,9 +52,11 @@ export const ListPanel: React.FC<ListPanelProps> = ({
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   
-  // Filtrar listas visíveis (não arquivadas e não dispensa)
+  // Filtrar listas
   const visibleLists = lists.filter(l => !l.archived && l.type !== 'pantry');
+  const archivedLists = lists.filter(l => l.archived && l.type !== 'pantry');
   const isPantryActive = lists.find(l => l.id === activeListId)?.type === 'pantry';
 
   const handleCreateSubmit = (e: React.FormEvent) => {
@@ -166,7 +168,7 @@ export const ListPanel: React.FC<ListPanelProps> = ({
          )}
 
          <div className="space-y-1">
-            {visibleLists.length === 0 && !isCreating ? (
+            {visibleLists.length === 0 && !isCreating && archivedLists.length === 0 ? (
                 <div className="text-center py-8 opacity-50 text-sm">Nenhuma lista criada.</div>
             ) : visibleLists.map(list => {
                 const isActive = list.id === activeListId;
@@ -195,6 +197,48 @@ export const ListPanel: React.FC<ListPanelProps> = ({
                 )
             })}
          </div>
+
+         {/* --- SEÇÃO DE ARQUIVADAS --- */}
+         {archivedLists.length > 0 && (
+            <div className="mt-6 border-t border-gray-100 dark:border-gray-800 pt-4">
+                <button 
+                    onClick={() => setShowArchived(!showArchived)}
+                    className="flex items-center justify-between w-full text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                    <span>Arquivadas ({archivedLists.length})</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${showArchived ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                
+                {showArchived && (
+                    <div className="space-y-1 animate-slide-up">
+                        {archivedLists.map(list => {
+                            const isActive = list.id === activeListId;
+                            return (
+                                <button
+                                    key={list.id}
+                                    onClick={() => handleNav(() => onSelect(list.id))}
+                                    className={`w-full text-left px-3 py-3 rounded-xl transition-all duration-200 flex items-center justify-between group ${
+                                        isActive 
+                                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' 
+                                        : 'hover:bg-white dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 opacity-80 hover:opacity-100'
+                                    }`}
+                                >
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-sm truncate">{list.name}</p>
+                                        <p className="text-xs truncate opacity-70">
+                                            {new Date(list.createdAt).toLocaleDateString('pt-BR')}
+                                        </p>
+                                    </div>
+                                    {isActive && (
+                                        <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                                    )}
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
+            </div>
+         )}
       </div>
 
       {/* 4. Footer Fixo */}

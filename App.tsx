@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy, useCallback } from 'react';
 import { ShoppingList } from './components/ShoppingList';
 import { SmartInput } from './components/SmartInput';
 import { ShoppingModeBar } from './components/ShoppingModeBar';
@@ -13,6 +13,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { InvitesToast } from './components/InvitesToast';
 import { ToastUndo } from './components/ToastUndo';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
+import { ErrorBoundary } from './components/ErrorBoundary'; // Import ErrorBoundary
 import { generateSmartList } from './services/geminiService';
 import { 
   auth, 
@@ -279,12 +280,14 @@ const App: React.FC = () => {
   const completedItemsCount = completedItems.length;
   
   // --- List Actions ---
-  const createList = async (name: string) => {
+  const createList = useCallback(async (name: string) => {
+    if (!user) return;
     await addListToFirestore(user.uid, { name, items: [], createdAt: Date.now(), archived: false, type: 'list' });
     addHistoryLog(user.uid, 'create_list', `Criou a lista "${name}"`);
-  };
+  }, [user]);
   
-  const handleOpenPantry = async () => {
+  const handleOpenPantry = useCallback(async () => {
+    if (!user) return;
     const pantryList = lists.find(l => l.type === 'pantry');
     if (pantryList) {
       setActiveListId(pantryList.id);
@@ -298,7 +301,7 @@ const App: React.FC = () => {
       });
       addHistoryLog(user.uid, 'create_list', 'Criou a Dispensa');
     }
-  };
+  }, [lists, user]);
 
   const handleGenerateList = async (mode: 'critical' | 'all') => {
     if (!isPantry) return;
@@ -420,9 +423,10 @@ const App: React.FC = () => {
     setIsCompleteModalOpen(false);
   };
 
-  const updateList = async (id: string, name: string) => {
+  const updateList = useCallback(async (id: string, name: string) => {
     await updateListInFirestore(id, { name });
-  };
+  }, []);
+
   const updateListBudget = async (amount: number | null | undefined) => {
     await updateListInFirestore(activeListId, { budget: amount === undefined ? null : amount });
     setIsBudgetModalOpen(false);
@@ -430,9 +434,9 @@ const App: React.FC = () => {
   const toggleListArchive = async (id: string, archived: boolean) => {
     await updateListInFirestore(id, { archived });
   };
-  const deleteList = async (id: string) => {
+  const deleteList = useCallback(async (id: string) => {
     await deleteListFromFirestore(id);
-  };
+  }, []);
 
   const addCategory = async (name: string, colorId: string) => {
     const newCat = { id: generateId(), name, colorId };
@@ -474,15 +478,15 @@ const App: React.FC = () => {
       }
   };
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
      const newTheme = theme === 'light' ? 'dark' : 'light';
      setTheme(newTheme);
-     saveUserTheme(user.uid, newTheme);
-  };
+     if (user) saveUserTheme(user.uid, newTheme);
+  }, [theme, user, setTheme]);
 
   // Updated addSimpleItem to accept category
-  const addSimpleItem = async (name: string, category: string = 'Outros') => {
-    if (isViewer) return;
+  const addSimpleItem = useCallback(async (name: string, category: string = 'Outros') => {
+    if (isViewer || !activeList) return;
     const newItem: ShoppingItem = { 
       id: generateId(), 
       name, 
@@ -497,11 +501,11 @@ const App: React.FC = () => {
     // Prevent Race Condition: Use Atomic ArrayUnion instead of rewriting the list
     await addItemToList(activeList.id, newItem);
     
-    addHistoryLog(user.uid, 'add_item', `Adicionou "${name}" em ${activeList.name}`);
-  };
+    if (user) addHistoryLog(user.uid, 'add_item', `Adicionou "${name}" em ${activeList.name}`);
+  }, [activeList, isViewer, user]);
 
-  const addItemsBatch = async (items: Partial<ShoppingItem>[]) => {
-      if (isViewer) return;
+  const addItemsBatch = useCallback(async (items: Partial<ShoppingItem>[]) => {
+      if (isViewer || !user) return;
       // If we are in pantry view, redirect to the first active shopping list or create one
       let targetListId = activeListId;
       if (isPantry) {
@@ -542,19 +546,19 @@ const App: React.FC = () => {
       // Prevent Race Condition: Use Atomic ArrayUnion
       await addItemsBatchToList(targetListId, newItems);
       
-      addHistoryLog(user.uid, 'add_item', `Adicionou ${newItems.length} itens via IA em ${listToUpdate.name}`);
-  }
+      addHistoryLog(user.uid, 'add_item', `Adicionou ${newItems.length} itens via IA em ${listToUpdate?.name}`);
+  }, [activeListId, isPantry, lists, user, activeList, isViewer]);
 
-  const updateItemBatch = async (id: string, updates: Partial<ShoppingItem>) => {
-    if (isViewer) return;
+  const updateItemBatch = useCallback(async (id: string, updates: Partial<ShoppingItem>) => {
+    if (isViewer || !activeList) return;
     const newItems = activeList.items.map(item => item.id === id ? { ...item, ...updates } : item);
     await updateListInFirestore(activeList.id, { items: newItems });
-  };
+  }, [isViewer, activeList]);
 
-  const handleReorder = async (newItems: ShoppingItem[]) => {
-      if (isViewer) return;
+  const handleReorder = useCallback(async (newItems: ShoppingItem[]) => {
+      if (isViewer || !activeList) return;
       await updateListInFirestore(activeList.id, { items: newItems });
-  };
+  }, [isViewer, activeList]);
 
   const addSmartItems = async (prompt: string) => {
     if (isViewer) return;
@@ -573,16 +577,17 @@ const App: React.FC = () => {
       setIsProcessing(false);
     }
   };
-  const toggleItem = async (itemId: string) => {
-    if (isPantry || isViewer) return;
+  
+  const toggleItem = useCallback(async (itemId: string) => {
+    if (isPantry || isViewer || !activeList || !user) return;
     const item = activeList.items.find(i => i.id === itemId);
     const newItems = activeList.items.map(item => item.id === itemId ? { ...item, completed: !item.completed } : item);
     await updateListInFirestore(activeList.id, { items: newItems });
     if (item && !item.completed) addHistoryLog(user.uid, 'complete_item', `Comprou "${item.name}"`);
-  };
+  }, [isPantry, isViewer, activeList, user]);
   
-  const deleteItem = async (itemId: string) => {
-    if (isViewer) return;
+  const deleteItem = useCallback(async (itemId: string) => {
+    if (isViewer || !activeList) return;
     
     // 1. Capture Item for Undo
     const itemToDelete = activeList.items.find(item => item.id === itemId);
@@ -598,7 +603,7 @@ const App: React.FC = () => {
         item: itemToDelete,
         listId: activeList.id
     });
-  };
+  }, [isViewer, activeList]);
 
   const handleUndoDelete = async () => {
     if (undoToast.item && undoToast.listId) {
@@ -613,7 +618,7 @@ const App: React.FC = () => {
     setUndoToast({ isOpen: false, item: null, listId: null });
   };
 
-  const saveItemEdit = async (
+  const saveItemEdit = useCallback(async (
     id: string, 
     name: string, 
     category: string, 
@@ -623,17 +628,17 @@ const App: React.FC = () => {
     idealQuantity?: number,
     note?: string 
   ) => {
-    if (isViewer) return;
+    if (isViewer || !activeList) return;
     const newItems = activeList.items.map(item => 
         item.id === id 
         ? { ...item, name, category, price, quantity, currentQuantity, idealQuantity, note } 
         : item
     );
     await updateListInFirestore(activeList.id, { items: newItems });
-  };
+  }, [isViewer, activeList]);
 
-  const updatePantryQuantity = async (id: string, delta: number) => {
-     if (isViewer) return;
+  const updatePantryQuantity = useCallback(async (id: string, delta: number) => {
+     if (isViewer || !activeList) return;
      const newItems = activeList.items.map(item => {
        if (item.id === id) {
          const current = item.currentQuantity || 0;
@@ -643,7 +648,7 @@ const App: React.FC = () => {
        return item;
      });
      await updateListInFirestore(activeList.id, { items: newItems });
-  };
+  }, [isViewer, activeList]);
 
   // --- Chef Modal Handlers ---
   const handleCookRecipe = async (usedIngredients: string[], recipeTitle: string) => {
@@ -950,7 +955,7 @@ const App: React.FC = () => {
            </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto pt-4 pb-32 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto pt-4 pb-32 custom-scrollbar hide-scrollbar">
           <div className="max-w-3xl mx-auto px-4">
             
             {safeActiveList.archived && (
@@ -1083,56 +1088,58 @@ const App: React.FC = () => {
         purchasedItems={completedItems}
       />
 
-      <Suspense fallback={null}>
-        {shareConfig.isOpen && (
-          <ShareListModal 
-            isOpen={shareConfig.isOpen}
-            onClose={() => setShareConfig({ ...shareConfig, isOpen: false })}
-            list={listToShare}
-            currentUser={user}
-          />
-        )}
+      <ErrorBoundary>
+        <Suspense fallback={null}>
+            {shareConfig.isOpen && (
+            <ShareListModal 
+                isOpen={shareConfig.isOpen}
+                onClose={() => setShareConfig({ ...shareConfig, isOpen: false })}
+                list={listToShare}
+                currentUser={user}
+            />
+            )}
 
-        {isHistoryOpen && (
-          <HistoryModal
-            isOpen={isHistoryOpen}
-            onClose={() => setIsHistoryOpen(false)}
-            userId={user.uid}
-            lists={lists} 
-          />
-        )}
+            {isHistoryOpen && (
+            <HistoryModal
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
+                userId={user.uid}
+                lists={lists} 
+            />
+            )}
 
-        {isAIChatOpen && (
-          <AIChatModal
-            isOpen={isAIChatOpen}
-            onClose={() => setIsAIChatOpen(false)}
-            categories={categories}
-            currentItems={safeActiveList.items}
-            onAddItems={addItemsBatch}
-            onRemoveItem={deleteItem}
-            onUpdateItem={updateItemBatch}
-          />
-        )}
+            {isAIChatOpen && (
+            <AIChatModal
+                isOpen={isAIChatOpen}
+                onClose={() => setIsAIChatOpen(false)}
+                categories={categories}
+                currentItems={safeActiveList.items}
+                onAddItems={addItemsBatch}
+                onRemoveItem={deleteItem}
+                onUpdateItem={updateItemBatch}
+            />
+            )}
 
-        {isChefModalOpen && (
-          <ChefModal
-            isOpen={isChefModalOpen}
-            onClose={() => setIsChefModalOpen(false)}
-            pantryItemNames={isPantry && activeList ? activeList.items.filter(i => (i.currentQuantity || 0) > 0).map(i => i.name) : []}
-            onCook={handleCookRecipe}
-            onShopMissing={handleShopMissing}
-          />
-        )}
+            {isChefModalOpen && (
+            <ChefModal
+                isOpen={isChefModalOpen}
+                onClose={() => setIsChefModalOpen(false)}
+                pantryItemNames={isPantry && activeList ? activeList.items.filter(i => (i.currentQuantity || 0) > 0).map(i => i.name) : []}
+                onCook={handleCookRecipe}
+                onShopMissing={handleShopMissing}
+            />
+            )}
 
-        {isScannerOpen && (
-          <ReceiptScannerModal 
-            isOpen={isScannerOpen}
-            onClose={() => setIsScannerOpen(false)}
-            expectedItemNames={!isPantry && activeList ? activeList.items.map(i => i.name) : []}
-            onApplyUpdates={handleScanResults}
-          />
-        )}
-      </Suspense>
+            {isScannerOpen && (
+            <ReceiptScannerModal 
+                isOpen={isScannerOpen}
+                onClose={() => setIsScannerOpen(false)}
+                expectedItemNames={!isPantry && activeList ? activeList.items.map(i => i.name) : []}
+                onApplyUpdates={handleScanResults}
+            />
+            )}
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 };
