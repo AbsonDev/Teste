@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense, lazy, useCallback } from 'react';
 import { ShoppingList } from './components/ShoppingList';
+import { ShoppingListSkeleton } from './components/Skeleton';
 import { SmartInput } from './components/SmartInput';
 import { ShoppingModeBar } from './components/ShoppingModeBar';
 import { ListDrawer, ListPanel } from './components/ListDrawer';
@@ -122,7 +123,8 @@ const App: React.FC = () => {
   const [shareConfig, setShareConfig] = useState<{isOpen: boolean, listId: string | null}>({ isOpen: false, listId: null });
 
   // Undo State
-  const [undoToast, setUndoToast] = useState<{isOpen: boolean, item: ShoppingItem | null, listId: string | null}>({ isOpen: false, item: null, listId: null });
+  const [deletedItem, setDeletedItem] = useState<{ item: ShoppingItem, listId: string } | null>(null);
+  const [showUndoToast, setShowUndoToast] = useState(false);
 
   // PWA State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -598,24 +600,58 @@ const App: React.FC = () => {
     await updateListInFirestore(activeList.id, { items: newItems });
 
     // 3. Show Toast
-    setUndoToast({
-        isOpen: true,
-        item: itemToDelete,
-        listId: activeList.id
-    });
+    setDeletedItem({ item: itemToDelete, listId: activeList.id });
+    setShowUndoToast(true);
   }, [isViewer, activeList]);
 
   const handleUndoDelete = async () => {
-    if (undoToast.item && undoToast.listId) {
+    if (deletedItem && deletedItem.listId) {
         // Find the list (it might not be active anymore, safer to find by ID)
-        const targetList = lists.find(l => l.id === undoToast.listId);
+        const targetList = lists.find(l => l.id === deletedItem.listId);
         if (targetList) {
              // Re-add the item. We put it back at the top or end.
-             const restoredItems = [undoToast.item, ...targetList.items];
-             await updateListInFirestore(undoToast.listId, { items: restoredItems });
+             const restoredItems = [deletedItem.item, ...targetList.items];
+             await updateListInFirestore(deletedItem.listId, { items: restoredItems });
         }
     }
-    setUndoToast({ isOpen: false, item: null, listId: null });
+    setShowUndoToast(false);
+    setDeletedItem(null);
+  };
+
+  const handleRestock = async (item: ShoppingItem) => {
+    if (!user) return;
+    
+    // Determine target shopping list
+    // Find active shopping list (not archived, not pantry)
+    let targetListId = activeListId;
+    const activeShoppingList = lists.find(l => !l.archived && l.type !== 'pantry');
+
+    if (activeShoppingList) {
+        targetListId = activeShoppingList.id;
+    } else {
+        // Create new if none
+        const newListRef = await addListToFirestore(user.uid, { 
+            name: 'Compras', 
+            items: [], 
+            createdAt: Date.now(), 
+            archived: false, 
+            type: 'list' 
+        });
+        targetListId = newListRef.id;
+    }
+
+    const itemToAdd: ShoppingItem = {
+        id: generateId(),
+        name: item.name,
+        category: item.category,
+        quantity: 1, // Default restock quantity
+        completed: false,
+        createdAt: Date.now()
+    };
+
+    await addItemToList(targetListId, itemToAdd);
+    addHistoryLog(user.uid, 'add_item', `Reabasteceu "${item.name}"`);
+    alert(`"${item.name}" adicionado à lista de compras!`);
   };
 
   const saveItemEdit = useCallback(async (
@@ -625,8 +661,8 @@ const App: React.FC = () => {
     price?: number, 
     quantity?: number, 
     currentQuantity?: number, 
-    idealQuantity?: number,
-    note?: string 
+    idealQuantity?: number, 
+    note?: string
   ) => {
     if (isViewer || !activeList) return;
     const newItems = activeList.items.map(item => 
@@ -718,7 +754,6 @@ const App: React.FC = () => {
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>;
   if (!user) return <LoginScreen />;
-  if (dataLoading && lists.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 gap-4"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div><p className="text-gray-400 text-sm">Sincronizando...</p></div>;
   
   const safeActiveList: ShoppingListGroup = activeList || { 
     id: 'temp', 
@@ -767,9 +802,10 @@ const App: React.FC = () => {
       )}
 
       <InvitesToast invites={invites} onAccept={(inv) => acceptInvite(inv, user.uid)} onReject={rejectInvite} />
+      
       <ToastUndo 
-         isOpen={undoToast.isOpen} 
-         onClose={() => setUndoToast(prev => ({ ...prev, isOpen: false }))}
+         isOpen={showUndoToast} 
+         onClose={() => setShowUndoToast(false)}
          onUndo={handleUndoDelete}
          message="Item excluído."
       />
@@ -1007,21 +1043,26 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <ShoppingList 
-              items={safeActiveList.items} 
-              categories={categories}
-              groupByCategory={groupByCategory}
-              sortBy={sortBy}
-              onToggle={toggleItem} 
-              onDelete={deleteItem}
-              onEdit={setEditingItem}
-              onReorder={handleReorder}
-              isPantry={isPantry}
-              onUpdateQuantity={updatePantryQuantity}
-              isViewer={isViewer}
-              onOpenAI={() => setIsAIChatOpen(true)}
-              onOpenScan={() => setIsScannerOpen(true)}
-            />
+            {dataLoading && lists.length === 0 ? (
+               <ShoppingListSkeleton />
+            ) : (
+                <ShoppingList 
+                    items={safeActiveList.items} 
+                    categories={categories}
+                    groupByCategory={groupByCategory}
+                    sortBy={sortBy}
+                    onToggle={toggleItem} 
+                    onDelete={deleteItem}
+                    onEdit={setEditingItem}
+                    onReorder={handleReorder}
+                    isPantry={isPantry}
+                    onUpdateQuantity={updatePantryQuantity}
+                    onRestock={handleRestock}
+                    isViewer={isViewer}
+                    onOpenAI={() => setIsAIChatOpen(true)}
+                    onOpenScan={() => setIsScannerOpen(true)}
+                />
+            )}
           </div>
         </main>
 

@@ -1,29 +1,31 @@
-import React from "react";
+import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
+  children?: ReactNode;
+  fallback?: ReactNode;
 }
 
 interface State {
   hasError: boolean;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = {
+      hasError: false
+    };
   }
 
-  static getDerivedStateFromError(_: Error): State {
+  public static getDerivedStateFromError(_: Error): State {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  render() {
+  public render() {
     if (this.state.hasError) {
       return this.props.fallback || (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">

@@ -14,6 +14,7 @@ interface ShoppingListProps {
   onReorder?: (items: ShoppingItem[]) => void;
   isPantry?: boolean;
   onUpdateQuantity?: (id: string, delta: number) => void;
+  onRestock?: (item: ShoppingItem) => void;
   isViewer?: boolean;
   onOpenScan?: () => void;
   onOpenAI?: () => void;
@@ -131,7 +132,7 @@ const SwipeableItem = memo(({
 
 // --- Item Row Content ---
 const ShoppingItemRow = memo(({ 
-    item, categories, isPantry, isViewer, onToggle, onEdit, onUpdateQuantity, groupByCategory, isDraggable, dragControls 
+    item, categories, isPantry, isViewer, onToggle, onEdit, onUpdateQuantity, groupByCategory, isDraggable, dragControls, onRestock 
 }: any) => {
     const category = categories.find((c: any) => c.name === item.category) || 
                      categories.find((c: any) => c.name === 'Outros');
@@ -162,6 +163,24 @@ const ShoppingItemRow = memo(({
                </div>
             </div>
             <div className="flex items-center gap-3">
+               
+               {/* Restock Button */}
+               {isPantry && !isViewer && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (onRestock) onRestock(item);
+                        }}
+                        className="p-2 bg-brand-50 text-brand-600 rounded-full hover:bg-brand-100 transition-colors flex"
+                        title="Adicionar à Lista de Compras"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>
+                            <path d="M12 8v4m-2-2h4" stroke="currentColor" />
+                        </svg>
+                    </button>
+               )}
+
                <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-0.5">
                   <button 
                     onClick={(e) => { e.stopPropagation(); onUpdateQuantity && onUpdateQuantity(item.id, -1); }}
@@ -241,22 +260,22 @@ const itemVariants = {
   exit: { opacity: 0, height: 0, marginBottom: 0, scale: 0.95, overflow: "hidden", transition: { duration: 0.2, ease: "easeOut" } }
 };
 
-const StaticShoppingItem = memo(({ item, categories, isPantry, isViewer, onToggle, onEdit, onDelete, onUpdateQuantity, groupByCategory }: any) => {
+const StaticShoppingItem = memo(({ item, categories, isPantry, isViewer, onToggle, onEdit, onDelete, onUpdateQuantity, groupByCategory, onRestock }: any) => {
     return (
         <motion.li layout variants={itemVariants} initial="hidden" animate="visible" exit="exit" className="rounded-xl">
              <SwipeableItem isViewer={isViewer} onSwipeLeft={() => onDelete(item.id)} onSwipeRight={isPantry ? undefined : () => onToggle(item.id)} completed={item.completed}>
-                <ShoppingItemRow item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} isDraggable={false} />
+                <ShoppingItemRow item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} isDraggable={false} onRestock={onRestock} />
              </SwipeableItem>
         </motion.li>
     );
 });
 
-const DraggableShoppingItem = memo(({ item, categories, isPantry, isViewer, onToggle, onEdit, onDelete, onUpdateQuantity, groupByCategory }: any) => {
+const DraggableShoppingItem = memo(({ item, categories, isPantry, isViewer, onToggle, onEdit, onDelete, onUpdateQuantity, groupByCategory, onRestock }: any) => {
   const dragControls = useDragControls();
   return (
     <Reorder.Item value={item} id={item.id} dragListener={false} dragControls={dragControls} variants={itemVariants} initial="hidden" animate="visible" exit="exit" className="relative rounded-xl my-2">
          <SwipeableItem isViewer={isViewer} onSwipeLeft={() => onDelete(item.id)} onSwipeRight={isPantry ? undefined : () => onToggle(item.id)} completed={item.completed}>
-            <ShoppingItemRow item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} isDraggable={true} dragControls={dragControls} />
+            <ShoppingItemRow item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} isDraggable={true} dragControls={dragControls} onRestock={onRestock} />
          </SwipeableItem>
     </Reorder.Item>
   );
@@ -264,7 +283,7 @@ const DraggableShoppingItem = memo(({ item, categories, isPantry, isViewer, onTo
 
 // --- Main Component ---
 export const ShoppingList: React.FC<ShoppingListProps> = memo(({ 
-  items, categories, groupByCategory, sortBy, onToggle, onDelete, onEdit, onReorder, isPantry = false, onUpdateQuantity, isViewer = false, onOpenScan, onOpenAI
+  items, categories, groupByCategory, sortBy, onToggle, onDelete, onEdit, onReorder, isPantry = false, onUpdateQuantity, isViewer = false, onOpenScan, onOpenAI, onRestock
 }) => {
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
 
@@ -282,7 +301,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = memo(({
                 <Reorder.Group axis="y" values={activeItems} onReorder={(newOrder) => { if (onReorder) onReorder([...newOrder, ...completedItems]); }} className="space-y-2">
                     <AnimatePresence initial={false} mode='popLayout'>
                         {activeItems.map(item => (
-                            <DraggableShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} />
+                            <DraggableShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} onRestock={onRestock} />
                         ))}
                     </AnimatePresence>
                 </Reorder.Group>
@@ -294,7 +313,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = memo(({
                         <ul className="space-y-2">
                             <AnimatePresence initial={false} mode='popLayout'>
                                 {completedItems.map(item => (
-                                    <StaticShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} />
+                                    <StaticShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} onRestock={onRestock} />
                                 ))}
                             </AnimatePresence>
                         </ul>
@@ -317,7 +336,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = memo(({
         <ul className="space-y-2 pb-32">
            <AnimatePresence initial={false} mode='popLayout'>
               {sortedItems.map(item => (
-                  <StaticShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} />
+                  <StaticShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} onRestock={onRestock} />
               ))}
           </AnimatePresence>
         </ul>
@@ -354,7 +373,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = memo(({
                 <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-2 overflow-hidden pl-1">
                     <AnimatePresence initial={false} mode='popLayout'>
                       {catItems.map(item => (
-                          <StaticShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} />
+                          <StaticShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} onRestock={onRestock} />
                       ))}
                     </AnimatePresence>
                 </motion.ul>
@@ -386,7 +405,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = memo(({
                 <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-2 overflow-hidden pl-1">
                     <AnimatePresence initial={false} mode='popLayout'>
                       {remainingItems.map(item => (
-                          <StaticShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} />
+                          <StaticShoppingItem key={item.id} item={item} categories={categories} isPantry={isPantry} isViewer={isViewer} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onUpdateQuantity={onUpdateQuantity} groupByCategory={groupByCategory} onRestock={onRestock} />
                       ))}
                     </AnimatePresence>
                 </motion.ul>
@@ -397,7 +416,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = memo(({
     }
 
     return <div className="pb-32">{groups}</div>;
-  }, [items, categories, groupByCategory, sortBy, isPantry, onUpdateQuantity, isViewer, onReorder, collapsedCategories]);
+  }, [items, categories, groupByCategory, sortBy, isPantry, onUpdateQuantity, isViewer, onReorder, collapsedCategories, onRestock]);
 
   // ZERO DATA STATE
   if (items.length === 0) {
