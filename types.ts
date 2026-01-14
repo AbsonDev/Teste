@@ -43,13 +43,22 @@ export interface HistoryLog {
   id: string;
   userId: string;
   userName?: string;
-  action: 'add_item' | 'complete_item' | 'delete_item' | 'finish_list' | 'create_list' | 'update_pantry';
+  action: 'add_item' | 'complete_item' | 'delete_item' | 'finish_list' | 'create_list' | 'update_pantry' | 'chef_cook';
   details: string; // "Maçã (x2)" or "Compras da Semana"
   metadata?: {
     value?: number; // For prices
     count?: number; // For item counts
   };
   createdAt: number;
+}
+
+export interface Recipe {
+  title: string;
+  time: string; // e.g. "30 min"
+  difficulty: 'Fácil' | 'Médio' | 'Difícil';
+  usedIngredients: string[]; // Items found in pantry
+  missingIngredients: string[]; // Items needed to buy
+  instructionsShort: string; // Brief description
 }
 
 export interface CategoryColor {

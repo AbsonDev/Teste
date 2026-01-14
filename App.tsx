@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ShoppingList } from './components/ShoppingList';
 import { SmartInput } from './components/SmartInput';
@@ -11,6 +12,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ShareListModal } from './components/ShareListModal';
 import { HistoryModal } from './components/HistoryModal';
 import { AIChatModal } from './components/AIChatModal';
+import { ChefModal } from './components/ChefModal';
 import { InvitesToast } from './components/InvitesToast';
 import { ToastUndo } from './components/ToastUndo';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
@@ -37,6 +39,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { ShoppingItem, ShoppingListGroup } from './types';
 import { useListData } from './hooks/useListData';
+import { ITEM_DATABASE } from './data/itemDatabase';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
@@ -104,6 +107,7 @@ const App: React.FC = () => {
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [isChefModalOpen, setIsChefModalOpen] = useState(false);
   
   // Share Modal State
   const [shareConfig, setShareConfig] = useState<{isOpen: boolean, listId: string | null}>({ isOpen: false, listId: null });
@@ -459,17 +463,45 @@ const App: React.FC = () => {
 
   const addItemsBatch = async (items: Partial<ShoppingItem>[]) => {
       if (isViewer) return;
-      const newItems = items.map(item => ({
-        ...item,
-        id: generateId(),
-        completed: false,
-        createdAt: Date.now(),
-        quantity: item.quantity || 1,
-        currentQuantity: 1,
-        idealQuantity: 2
-      } as ShoppingItem));
-      await updateListInFirestore(activeList.id, { items: [...newItems, ...activeList.items] });
-      addHistoryLog(user.uid, 'add_item', `Adicionou ${newItems.length} itens via IA em ${activeList.name}`);
+      // If we are in pantry view, redirect to the first active shopping list or create one
+      let targetListId = activeListId;
+      if (isPantry) {
+          const shoppingList = lists.find(l => !l.archived && l.type !== 'pantry');
+          if (shoppingList) {
+             targetListId = shoppingList.id;
+          } else {
+             // Create a new list if none exists
+             const newListRef = await addListToFirestore(user.uid, { 
+                name: 'Compras', 
+                items: [], 
+                createdAt: Date.now(), 
+                archived: false, 
+                type: 'list' 
+             });
+             targetListId = newListRef.id;
+          }
+      }
+
+      const listToUpdate = lists.find(l => l.id === targetListId) || activeList;
+      
+      const newItems = items.map(item => {
+        // Simple auto-categorize fallback
+        const autoCat = item.category || ITEM_DATABASE[item.name?.toLowerCase() || ''] || 'Outros';
+
+        return {
+          ...item,
+          id: generateId(),
+          category: autoCat,
+          completed: false,
+          createdAt: Date.now(),
+          quantity: item.quantity || 1,
+          currentQuantity: 1,
+          idealQuantity: 2
+        } as ShoppingItem;
+      });
+
+      await updateListInFirestore(targetListId, { items: [...newItems, ...listToUpdate.items] });
+      addHistoryLog(user.uid, 'add_item', `Adicionou ${newItems.length} itens via IA em ${listToUpdate.name}`);
   }
 
   const updateItemBatch = async (id: string, updates: Partial<ShoppingItem>) => {
@@ -556,6 +588,33 @@ const App: React.FC = () => {
        return item;
      });
      await updateListInFirestore(activeList.id, { items: newItems });
+  };
+
+  // --- Chef Modal Handlers ---
+  const handleCookRecipe = async (usedIngredients: string[], recipeTitle: string) => {
+      if (!isPantry || !activeList) return;
+
+      const newItems = activeList.items.map(item => {
+          // Simple fuzzy match: check if ingredient string contains item name or vice versa
+          const itemName = item.name.toLowerCase();
+          const isUsed = usedIngredients.some(ing => 
+              itemName.includes(ing.toLowerCase()) || ing.toLowerCase().includes(itemName)
+          );
+
+          if (isUsed) {
+             const current = item.currentQuantity || 0;
+             return { ...item, currentQuantity: Math.max(0, current - 1) };
+          }
+          return item;
+      });
+
+      await updateListInFirestore(activeList.id, { items: newItems });
+      addHistoryLog(user.uid, 'chef_cook', `Cozinhou "${recipeTitle}"`);
+  };
+
+  const handleShopMissing = async (missingIngredients: string[]) => {
+      const itemsToAdd = missingIngredients.map(name => ({ name, quantity: 1 }));
+      await addItemsBatch(itemsToAdd);
   };
 
   // --- Render ---
@@ -715,13 +774,23 @@ const App: React.FC = () => {
              <div className="flex flex-col items-end gap-2">
                {isPantry ? (
                  isEditor && (
-                    <button
-                    onClick={() => setIsGenerateModalOpen(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-brand-600 text-white rounded-lg shadow-sm hover:bg-brand-700 transition-colors active:scale-95"
-                    >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                    <span className="text-xs font-bold uppercase tracking-wide">Gerar Lista</span>
-                    </button>
+                    <div className="flex gap-2">
+                       <button
+                         onClick={() => setIsChefModalOpen(true)}
+                         className="flex items-center gap-2 px-3 py-1.5 bg-orange-500 text-white rounded-lg shadow-sm hover:bg-orange-600 transition-colors active:scale-95"
+                         title="O que cozinhar?"
+                       >
+                         <span className="text-sm">👨‍🍳</span>
+                         <span className="text-xs font-bold uppercase tracking-wide hidden sm:inline">Chef</span>
+                       </button>
+                       <button
+                         onClick={() => setIsGenerateModalOpen(true)}
+                         className="flex items-center gap-2 px-3 py-1.5 bg-brand-600 text-white rounded-lg shadow-sm hover:bg-brand-700 transition-colors active:scale-95"
+                       >
+                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                         <span className="text-xs font-bold uppercase tracking-wide hidden sm:inline">Gerar Lista</span>
+                       </button>
+                    </div>
                  )
                ) : (
                  <>
@@ -895,6 +964,14 @@ const App: React.FC = () => {
         onAddItems={addItemsBatch}
         onRemoveItem={deleteItem}
         onUpdateItem={updateItemBatch}
+      />
+
+      <ChefModal
+        isOpen={isChefModalOpen}
+        onClose={() => setIsChefModalOpen(false)}
+        pantryItemNames={isPantry && activeList ? activeList.items.filter(i => (i.currentQuantity || 0) > 0).map(i => i.name) : []}
+        onCook={handleCookRecipe}
+        onShopMissing={handleShopMissing}
       />
     </div>
   );

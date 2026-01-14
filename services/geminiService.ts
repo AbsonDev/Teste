@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, FunctionDeclaration, Chat, GenerateContentResponse } from "@google/genai";
-import { ShoppingItem } from "../types";
+import { ShoppingItem, Recipe } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -74,6 +74,65 @@ export const generateSmartList = async (prompt: string, availableCategories: str
   } catch (error) {
     console.error("Error generating smart list:", error);
     throw error;
+  }
+};
+
+export const suggestRecipesFromPantry = async (pantryItems: string[]): Promise<Recipe[]> => {
+  if (pantryItems.length === 0) return [];
+  
+  try {
+    const pantryStr = pantryItems.join(', ');
+
+    const response = await callWithRetry<GenerateContentResponse>(() => ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: `
+      Context - User's Pantry Ingredients: [${pantryStr}].
+      
+      Task: Suggest 3 distinct recipes that can be made PRIMARILY using the ingredients in the pantry.
+      
+      Rules:
+      1. Prioritize recipes where the user already has most ingredients.
+      2. Identify which ingredients are 'used' (from pantry) and which are 'missing' (need to buy).
+      3. Keep instructions very short (1 sentence summary).
+      4. Language: Portuguese (Brazil).
+      `,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING, description: "Name of the recipe" },
+              time: { type: Type.STRING, description: "Preparation time, e.g., '30 min'" },
+              difficulty: { type: Type.STRING, enum: ["Fácil", "Médio", "Difícil"] },
+              usedIngredients: { 
+                type: Type.ARRAY, 
+                items: { type: Type.STRING },
+                description: "List of ingredients present in the pantry used in this recipe"
+              },
+              missingIngredients: { 
+                type: Type.ARRAY, 
+                items: { type: Type.STRING },
+                description: "List of essential ingredients missing from pantry"
+              },
+              instructionsShort: { type: Type.STRING, description: "A very brief summary of how to make it" }
+            },
+            required: ["title", "time", "difficulty", "usedIngredients", "missingIngredients", "instructionsShort"]
+          }
+        }
+      }
+    }));
+
+    const jsonText = response.text;
+    if (!jsonText) return [];
+    
+    const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson) as Recipe[];
+
+  } catch (error) {
+    console.error("Error generating recipes:", error);
+    return [];
   }
 };
 

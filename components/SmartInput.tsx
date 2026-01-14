@@ -22,6 +22,10 @@ const PlusIcon = () => (
   </svg>
 );
 
+// Helper to remove accents (normalization)
+const normalizeText = (text: string) => 
+  text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart, isProcessing, actionButton, isViewer }) => {
   const [inputValue, setInputValue] = useState('');
   const [mode, setMode] = useState<'simple' | 'smart'>('simple');
@@ -59,7 +63,11 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
       }
     } else {
       // Auto-categorize if exact match exists in DB even without clicking suggestion
-      const autoCategory = ITEM_DATABASE[val.toLowerCase()] || 'Outros';
+      const normalizedVal = normalizeText(val);
+      // Find key by normalized match or exact key match
+      const dbKey = Object.keys(ITEM_DATABASE).find(k => normalizeText(k) === normalizedVal);
+      const autoCategory = dbKey ? ITEM_DATABASE[dbKey] : 'Outros';
+      
       onAddSimple(val, autoCategory);
       setInputValue('');
     }
@@ -69,8 +77,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
     // Reset error when user types
     if (error && inputValue) setError(null);
 
-    // Only auto-switch if user hasn't manually interacted heavily or if we want to guide them
-    const lowerVal = inputValue.toLowerCase();
+    const normalizedInput = normalizeText(inputValue);
     
     // Autocomplete Logic for Simple Mode
     if (mode === 'simple') {
@@ -78,7 +85,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
         setSuggestions([]);
       } else {
         const matches = Object.keys(ITEM_DATABASE)
-          .filter(item => item.toLowerCase().includes(lowerVal))
+          .filter(item => normalizeText(item).includes(normalizedInput))
           .slice(0, 5); // Limit to 5 suggestions
         setSuggestions(matches);
       }
@@ -87,11 +94,13 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
     }
 
     // Auto-switch to Smart Mode for obvious AI prompts
+    // We increase threshold slightly to avoid conflict with long product names
     const isObviousSmartCandidate = 
-      inputValue.length > 40 || 
-      (lowerVal.includes('receita') && lowerVal.length > 10) ||
-      (lowerVal.includes('ingredientes') && lowerVal.length > 10);
+      inputValue.length > 50 || 
+      (normalizedInput.includes('receita') && inputValue.length > 10) ||
+      (normalizedInput.includes('ingredientes') && inputValue.length > 10);
     
+    // Only switch if user hasn't explicitly selected simple mode recently (simplification: just switch)
     if (isObviousSmartCandidate && mode === 'simple') {
       setMode('smart');
     }
@@ -118,7 +127,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
 
         {/* Autocomplete Suggestions */}
         {suggestions.length > 0 && mode === 'simple' && (
-          <ul className="absolute bottom-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl mb-3 overflow-hidden z-40 animate-slide-up">
+          <ul className="absolute bottom-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl mb-3 overflow-hidden z-[60] max-h-48 overflow-y-auto animate-slide-up custom-scrollbar">
             {suggestions.map(suggestion => (
               <li 
                 key={suggestion}

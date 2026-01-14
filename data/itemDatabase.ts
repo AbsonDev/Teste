@@ -1,4 +1,14 @@
-export const ITEM_DATABASE: Record<string, string> = {
+
+export type CategoryName = 
+  | 'Frutas e Verduras' 
+  | 'Laticínios' 
+  | 'Carnes' 
+  | 'Padaria' 
+  | 'Limpeza' 
+  | 'Outros' 
+  | 'Bebidas'; // Bebidas is commonly mapped to Outros if not in DEFAULT_CATEGORIES, but good to have in DB
+
+export const ITEM_DATABASE: Record<string, CategoryName> = {
   // Frutas e Verduras
   'banana': 'Frutas e Verduras',
   'maçã': 'Frutas e Verduras',
@@ -67,8 +77,7 @@ export const ITEM_DATABASE: Record<string, string> = {
   'condicionador': 'Limpeza',
   'álcool': 'Limpeza',
 
-  // Outros (Bebidas e Mercearia mapeados para Outros se não houver categoria específica no types.ts, 
-  // mas assumindo que podemos expandir. Por enquanto mapeamos para Outros ou categorias próximas)
+  // Outros (Bebidas e Mercearia mapeados para Outros se não houver categoria específica no types.ts)
   'arroz': 'Outros',
   'feijão': 'Outros',
   'macarrão': 'Outros',
