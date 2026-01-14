@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ShoppingList } from './components/ShoppingList';
 import { SmartInput } from './components/SmartInput';
+import { ShoppingModeBar } from './components/ShoppingModeBar';
 import { ListDrawer, ListPanel } from './components/ListDrawer';
 import { CategoryManager } from './components/CategoryManager';
 import { EditItemModal } from './components/EditItemModal';
@@ -40,7 +41,7 @@ import {
   addItemsBatchToList
 } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ShoppingItem, ShoppingListGroup, ScannedItem } from './types';
+import { ShoppingItem, ShoppingListGroup, ScannedItem, Category } from './types';
 import { useListData } from './hooks/useListData';
 import { ITEM_DATABASE } from './data/itemDatabase';
 
@@ -97,6 +98,7 @@ const App: React.FC = () => {
   }, [sortBy]);
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isShoppingMode, setIsShoppingMode] = useState(false);
   
   // UI States
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -190,6 +192,35 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  // --- Wake Lock Effect (Shopping Mode) ---
+  useEffect(() => {
+    let wakeLock: any = null;
+
+    const requestWakeLock = async () => {
+      if (isShoppingMode && 'wakeLock' in navigator) {
+        try {
+          // @ts-ignore - Typescript might not have DOM types updated for wakeLock yet
+          wakeLock = await navigator.wakeLock.request('screen');
+          console.log('Wake Lock is active');
+        } catch (err: any) {
+          console.error(`${err.name}, ${err.message}`);
+        }
+      }
+    };
+
+    if (isShoppingMode) {
+      requestWakeLock();
+    }
+
+    // Release lock on cleanup or mode change
+    return () => {
+      if (wakeLock) {
+        wakeLock.release();
+        wakeLock = null;
+      }
+    };
+  }, [isShoppingMode]);
 
   const handleInstallClick = () => {
     if (deferredPrompt) {
@@ -432,14 +463,13 @@ const App: React.FC = () => {
     }
   };
   
-  const moveCategory = async (index: number, direction: 'up' | 'down') => {
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === categories.length - 1) return;
-    const newCategories = [...categories];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    [newCategories[index], newCategories[targetIndex]] = [newCategories[targetIndex], newCategories[index]];
-    setCategories(newCategories); 
-    await saveUserCategories(user.uid, newCategories);
+  // Replaced moveCategory with handleUpdateCategoryOrder
+  const handleUpdateCategoryOrder = async (updatedCategories: Category[]) => {
+      // Optimistic update
+      setCategories(updatedCategories); 
+      if (user) {
+          await saveUserCategories(user.uid, updatedCategories);
+      }
   };
 
   const toggleTheme = () => {
@@ -717,7 +747,7 @@ const App: React.FC = () => {
       </button>
   ) : null;
 
-  const aiChatButton = (enableAIChat && !isViewer && !safeActiveList.archived) ? (
+  const aiChatButton = (enableAIChat && !isViewer && !safeActiveList.archived && !isShoppingMode) ? (
      <button id="ai-chat-button" onClick={() => setIsAIChatOpen(true)} className="absolute bottom-24 right-4 sm:right-6 md:right-8 z-30 p-3.5 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-xl shadow-purple-200/50 hover:scale-105 active:scale-95 transition-all animate-slide-up" title="Assistente IA">
        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
        <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse border-2 border-white"></span>
@@ -858,6 +888,17 @@ const App: React.FC = () => {
                ) : (
                  <>
                    <div className="flex items-center gap-2">
+                      {/* Botão Modo Compras */}
+                      {!isShoppingMode && !isViewer && activeList && !safeActiveList.archived && (
+                          <button
+                              onClick={() => setIsShoppingMode(true)}
+                              className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-transparent hover:border-green-200"
+                              title="Iniciar Modo Supermercado (Mantém tela ligada)"
+                          >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                          </button>
+                      )}
+
                       {!safeActiveList.archived && !isViewer && (
                           <button
                             onClick={() => setIsScannerOpen(true)}
@@ -971,14 +1012,28 @@ const App: React.FC = () => {
         {aiChatButton}
 
         {!safeActiveList.archived && (
-          <div id="smart-input-area">
-            <SmartInput 
-                onAddSimple={addSimpleItem} 
-                onAddSmart={addSmartItems} 
-                isProcessing={isProcessing} 
-                actionButton={completeButton}
-                isViewer={isViewer}
-            />
+          <div id="smart-input-area" className="z-50 relative">
+            {isShoppingMode ? (
+                <ShoppingModeBar 
+                    cartTotal={listTotal}
+                    budget={safeActiveList.budget || 0}
+                    itemCount={safeActiveList.items.length}
+                    checkedCount={completedItemsCount}
+                    onFinish={() => {
+                        setIsShoppingMode(false);
+                        setIsCompleteModalOpen(true);
+                    }}
+                    onExitMode={() => setIsShoppingMode(false)}
+                />
+            ) : (
+                <SmartInput 
+                    onAddSimple={addSimpleItem} 
+                    onAddSmart={addSmartItems} 
+                    isProcessing={isProcessing} 
+                    actionButton={completeButton}
+                    isViewer={isViewer}
+                />
+            )}
           </div>
         )}
       </div>
@@ -990,7 +1045,7 @@ const App: React.FC = () => {
         onAdd={addCategory} 
         onUpdate={updateCategory} 
         onDelete={deleteCategory}
-        onMove={moveCategory}
+        onUpdateOrder={handleUpdateCategoryOrder}
       />
       <EditItemModal 
         item={editingItem} 

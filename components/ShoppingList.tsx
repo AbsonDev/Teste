@@ -695,7 +695,10 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
         );
     }
 
-    categories.forEach(cat => {
+    // Sort categories based on order property before grouping
+    const sortedCategories = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    sortedCategories.forEach(cat => {
       const catItems = sortedItems.filter(i => i.category === cat.name);
       if (catItems.length > 0) {
         catItems.forEach(i => usedItemIds.add(i.id));

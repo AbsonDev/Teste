@@ -4,119 +4,148 @@ import { logUserEvent } from '../services/firebase';
 import { ITEM_DATABASE } from '../data/itemDatabase';
 
 interface SmartInputProps {
-  onAddSimple: (name: string, category?: string) => void;
+  onAddSimple: (name: string, category?: string) => Promise<void>;
   onAddSmart: (prompt: string) => Promise<void>;
   isProcessing: boolean;
-  actionButton?: React.ReactNode; 
+  actionButton?: React.ReactNode;
   isViewer?: boolean;
 }
 
-const SparklesIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/>
-  </svg>
-);
-
-const PlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12h14"/><path d="M12 5v14"/>
-  </svg>
-);
-
-// Helper to remove accents (normalization)
+// Helper para remover acentos
 const normalizeText = (text: string) => 
   text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart, isProcessing, actionButton, isViewer }) => {
+export const SmartInput: React.FC<SmartInputProps> = ({ 
+  onAddSimple, 
+  onAddSmart, 
+  isProcessing, 
+  actionButton,
+  isViewer 
+}) => {
   const [inputValue, setInputValue] = useState('');
   const [mode, setMode] = useState<'simple' | 'smart'>('simple');
-  const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isListening, setIsListening] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const toggleMode = () => {
-    setMode(prev => prev === 'simple' ? 'smart' : 'simple');
-    setSuggestions([]);
-  };
+  // Detecção automática de modo (IA vs Simples)
+  useEffect(() => {
+    // Se tiver palavras-chave de comando, muda para Smart
+    const smartKeywords = ['receita', 'fazer', 'jantar', 'almoço', 'lista para', 'churrasco', 'bolo'];
+    const isSmart = smartKeywords.some(kw => inputValue.toLowerCase().includes(kw)) || inputValue.length > 40;
+    
+    // Mas se tiver vírgulas (lista rápida), forçamos o modo Simples (Batch)
+    const isBatchList = inputValue.includes(',') || inputValue.includes('\n');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (isSmart && !isBatchList) {
+        setMode('smart');
+    } else {
+        setMode('simple');
+    }
+
+    // Lógica de Autocomplete (Só no modo simples e curto)
+    if (!isBatchList && inputValue.length >= 2 && inputValue.length < 20) {
+        const normalizedInput = normalizeText(inputValue);
+        const matches = Object.keys(ITEM_DATABASE).filter(item => 
+            normalizeText(item).includes(normalizedInput)
+        ).slice(0, 4); // Top 4 sugestões
+        setSuggestions(matches);
+    } else {
+        setSuggestions([]);
+    }
+
+  }, [inputValue]);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!inputValue.trim() || isProcessing) return;
 
     const val = inputValue.trim();
-    setError(null);
-    setSuggestions([]);
-    
+
+    // Modo IA (Gemini)
     if (mode === 'smart') {
       try {
         logUserEvent('smart_list_generated', { prompt_length: val.length });
         await onAddSmart(val);
-        setInputValue(''); 
+        setInputValue('');
       } catch (e: any) {
         console.error(e);
-        logUserEvent('ai_error', { 
-            error_message: e.message, 
-            prompt_context: 'smart_input' 
-        });
-        setError("Não entendi o pedido. Tente simplificar.");
-      } finally {
-        setMode('simple');
+        logUserEvent('ai_error', { error_message: e.message, prompt_context: 'smart_input' });
+        alert("Não entendi o pedido. Tente simplificar.");
       }
-    } else {
-      // Auto-categorize if exact match exists in DB even without clicking suggestion
-      const normalizedVal = normalizeText(val);
-      // Find key by normalized match or exact key match
-      const dbKey = Object.keys(ITEM_DATABASE).find(k => normalizeText(k) === normalizedVal);
-      const autoCategory = dbKey ? ITEM_DATABASE[dbKey] : 'Outros';
-      
-      onAddSimple(val, autoCategory);
-      setInputValue('');
+      return;
     }
+
+    // Modo Simples (Com suporte a Lote/Batch)
+    // Separa por vírgulas ou quebras de linha
+    const items = val.split(/,|\n/).map(s => s.trim()).filter(s => s.length > 0);
+
+    for (const itemName of items) {
+        // Tenta encontrar categoria no banco local
+        const normalizedName = normalizeText(itemName);
+        // Procura match exato ou parcial no DB
+        const dbKey = Object.keys(ITEM_DATABASE).find(key => normalizeText(key) === normalizedName);
+        const category = dbKey ? ITEM_DATABASE[dbKey] : 'Outros';
+        
+        await onAddSimple(itemName, category);
+    }
+
+    setInputValue('');
+    setSuggestions([]);
   };
 
-  useEffect(() => {
-    // Reset error when user types
-    if (error && inputValue) setError(null);
+  const handleSuggestionClick = (suggestion: string) => {
+      const category = ITEM_DATABASE[suggestion];
+      // Capitalize first letter
+      const displayVal = suggestion.charAt(0).toUpperCase() + suggestion.slice(1);
+      onAddSimple(displayVal, category);
+      setInputValue('');
+      setSuggestions([]);
+      inputRef.current?.focus();
+  };
 
-    const normalizedInput = normalizeText(inputValue);
-    
-    // Autocomplete Logic for Simple Mode
-    if (mode === 'simple') {
-      if (inputValue.length < 2) {
-        setSuggestions([]);
-      } else {
-        const matches = Object.keys(ITEM_DATABASE)
-          .filter(item => normalizeText(item).includes(normalizedInput))
-          .slice(0, 5); // Limit to 5 suggestions
-        setSuggestions(matches);
-      }
-    } else {
-        setSuggestions([]);
+  // --- Voice Recognition Logic ---
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Seu navegador não suporta reconhecimento de voz.");
+      return;
     }
 
-    // Auto-switch to Smart Mode for obvious AI prompts
-    // We increase threshold slightly to avoid conflict with long product names
-    const isObviousSmartCandidate = 
-      inputValue.length > 50 || 
-      (normalizedInput.includes('receita') && inputValue.length > 10) ||
-      (normalizedInput.includes('ingredientes') && inputValue.length > 10);
-    
-    // Only switch if user hasn't explicitly selected simple mode recently (simplification: just switch)
-    if (isObviousSmartCandidate && mode === 'simple') {
-      setMode('smart');
-    }
-  }, [inputValue, error, mode]);
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
 
-  if (isViewer) {
-      return (
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/70 dark:bg-gray-900/90 backdrop-blur-xl border-t border-white/20 dark:border-white/5 z-50 text-center text-gray-500 dark:text-gray-400 text-sm">
-             Você está no modo Leitor.
-          </div>
-      );
-  }
+    recognition.lang = 'pt-BR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      // Adiciona ao texto existente (com vírgula se precisar)
+      setInputValue(prev => {
+          const separator = prev.length > 0 && !prev.endsWith(', ') ? ', ' : '';
+          return prev + separator + transcript;
+      });
+      setIsListening(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error(event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
+  };
+
+  if (isViewer) return null;
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/60 dark:bg-gray-900/90 backdrop-blur-xl border-t border-white/40 dark:border-white/5 z-30 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-300">
+    <div className="fixed bottom-0 left-0 w-full p-4 bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900 z-40">
       <div className="max-w-3xl mx-auto relative">
         
         {/* Floating Action Button Slot */}
@@ -126,98 +155,78 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
           </div>
         )}
 
-        {/* Autocomplete Suggestions */}
-        {suggestions.length > 0 && mode === 'simple' && (
-          <ul className="absolute bottom-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl mb-3 overflow-hidden z-[60] max-h-48 overflow-y-auto animate-slide-up custom-scrollbar">
-            {suggestions.map(suggestion => (
-              <li 
-                key={suggestion}
-                onMouseDown={(e) => {
-                   e.preventDefault(); // Prevent input blur
-                   const category = ITEM_DATABASE[suggestion];
-                   // Capitalize first letter for display niceness
-                   const displayVal = suggestion.charAt(0).toUpperCase() + suggestion.slice(1);
-                   onAddSimple(displayVal, category);
-                   setInputValue('');
-                   setSuggestions([]);
-                }}
-                className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center border-b last:border-0 border-gray-100 dark:border-gray-700 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    <span className="text-gray-800 dark:text-gray-200 capitalize">{suggestion}</span>
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                    {ITEM_DATABASE[suggestion]}
-                </span>
-              </li>
-            ))}
-          </ul>
+        {/* Lista de Sugestões (Autocomplete) */}
+        {suggestions.length > 0 && (
+            <ul className="absolute bottom-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl mb-3 overflow-hidden z-50 max-h-40 overflow-y-auto animate-slide-up">
+                {suggestions.map(s => (
+                <li 
+                    key={s} 
+                    onClick={() => handleSuggestionClick(s)}
+                    className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center border-b last:border-0 border-gray-100 dark:border-gray-700"
+                >
+                    <span className="text-gray-800 dark:text-gray-200 capitalize font-medium">{s}</span>
+                    <span className="text-[10px] bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-2 py-1 rounded uppercase tracking-wider">{ITEM_DATABASE[s]}</span>
+                </li>
+                ))}
+            </ul>
         )}
 
-        <form onSubmit={handleSubmit} className="relative flex items-center gap-3">
-          <div className="relative flex-1 group">
-             {/* Mode Toggle Button */}
-             <button
-               type="button"
-               onClick={toggleMode}
-               className={`absolute inset-y-0 left-2 my-1.5 px-2 rounded-lg flex items-center justify-center transition-all duration-300 z-10 ${
-                   mode === 'smart' 
-                   ? 'bg-purple-100 text-purple-600 hover:bg-purple-200 dark:bg-purple-900/50 dark:text-purple-300' 
-                   : 'bg-transparent text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600'
-               }`}
-               title={mode === 'smart' ? "Modo Inteligente (IA) Ativado" : "Modo Simples (Texto)"}
-             >
-               {mode === 'smart' ? <SparklesIcon /> : <PlusIcon />}
-            </button>
-
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={mode === 'smart' ? "Ex: Receita de bolo de cenoura..." : "Adicionar item..."}
-              className={`w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 outline-none text-base transition-all duration-300 shadow-inner ${
-                error 
-                  ? 'border-red-300 bg-red-50/80 text-red-900 dark:bg-red-900/40 dark:text-red-100 dark:border-red-800 focus:border-red-400 placeholder-red-300'
-                  : mode === 'smart' 
-                    ? 'border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-900/30 focus:border-purple-400 dark:focus:border-purple-600 text-purple-900 dark:text-purple-100 placeholder-purple-300 dark:placeholder-purple-400/60' 
-                    : 'border-white/50 dark:border-gray-700 bg-white/50 dark:bg-gray-800/80 focus:bg-white/80 dark:focus:bg-gray-800 focus:border-gray-300 dark:focus:border-gray-600 text-gray-800 dark:text-white dark:placeholder-gray-500 backdrop-blur-sm'
-              }`}
-              disabled={isProcessing}
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
+          
+          {/* Botão de Voz */}
           <button
-            type="submit"
-            disabled={!inputValue.trim() || isProcessing}
-            className={`p-3.5 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg active:scale-95 ${
-              mode === 'smart'
-                ? 'bg-gradient-to-br from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-purple-200/50'
-                : 'bg-gradient-to-br from-brand-500 to-green-600 hover:from-brand-600 hover:to-green-700 text-white shadow-brand-200/50'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            type="button"
+            onClick={startListening}
+            className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all z-20 ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+            title="Ditar itens"
           >
-             {isProcessing ? (
-               <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            {isListening ? (
+               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             ) : (
-               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
+               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             )}
           </button>
-        </form>
-         
-         <div className="text-xs text-center mt-2 h-4 relative">
-             {error ? (
-                <span className="text-red-500 dark:text-red-400 font-medium animate-fade-in absolute inset-0">
-                    {error}
-                </span>
+
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={isListening ? "Ouvindo..." : mode === 'smart' ? "Peça uma receita..." : "Adicione itens (separe por vírgula)..."}
+            className={`w-full pl-14 pr-14 py-4 rounded-2xl border shadow-lg shadow-gray-200/50 dark:shadow-none outline-none transition-all text-base
+              ${mode === 'smart' 
+                ? 'border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-purple-900 dark:text-purple-100 placeholder-purple-300 focus:ring-2 focus:ring-purple-500' 
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500'
+              }
+            `}
+            disabled={isProcessing}
+          />
+          
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+             {isProcessing ? (
+                <div className="p-2">
+                    <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
              ) : (
-                <span className={`text-purple-600 dark:text-purple-400 font-medium flex items-center justify-center gap-1 transition-all duration-300 absolute inset-0 ${mode === 'smart' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
-                    <SparklesIcon className="w-3 h-3" /> IA: Criando lista inteligente...
-                </span>
+                <button
+                    type="submit"
+                    disabled={!inputValue.trim()}
+                    className={`p-2.5 rounded-xl transition-all disabled:opacity-50 disabled:scale-100 active:scale-95
+                        ${mode === 'smart' 
+                        ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-200' 
+                        : 'bg-brand-600 text-white hover:bg-brand-700 shadow-lg shadow-brand-200'
+                        }
+                    `}
+                >
+                    {mode === 'smart' ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+                    ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    )}
+                </button>
              )}
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );

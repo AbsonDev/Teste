@@ -83,6 +83,7 @@ export interface Category {
   id: string;
   name: string;
   colorId: string;
+  order?: number; // Order index for sorting
 }
 
 export const COLOR_PALETTES: CategoryColor[] = [
@@ -97,12 +98,12 @@ export const COLOR_PALETTES: CategoryColor[] = [
 ];
 
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', name: 'Frutas e Verduras', colorId: 'green' },
-  { id: '2', name: 'Laticínios', colorId: 'blue' },
-  { id: '3', name: 'Carnes', colorId: 'red' },
-  { id: '4', name: 'Padaria', colorId: 'yellow' },
-  { id: '5', name: 'Limpeza', colorId: 'purple' },
-  { id: '6', name: 'Outros', colorId: 'gray' },
+  { id: '1', name: 'Frutas e Verduras', colorId: 'green', order: 0 },
+  { id: '2', name: 'Laticínios', colorId: 'blue', order: 1 },
+  { id: '3', name: 'Carnes', colorId: 'red', order: 2 },
+  { id: '4', name: 'Padaria', colorId: 'yellow', order: 3 },
+  { id: '5', name: 'Limpeza', colorId: 'purple', order: 4 },
+  { id: '6', name: 'Outros', colorId: 'gray', order: 5 },
 ];
 
 export const DEFAULT_COLOR = COLOR_PALETTES.find(c => c.id === 'gray')!;
