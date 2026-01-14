@@ -38,7 +38,7 @@ const UndoIcon = () => (
 );
 
 const EditIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
   </svg>
 );
@@ -57,35 +57,22 @@ const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 };
 
-// --- Micro-Interaction Components ---
-
-const CompletionParticles = () => {
-  // Generate 8 particles around the circle
-  const particles = Array.from({ length: 8 }).map((_, i) => {
-    const angle = (i * 45) * (Math.PI / 180);
-    return {
-      x: Math.cos(angle) * 20, // distance
-      y: Math.sin(angle) * 20,
-      id: i
+// Helper to get strong sidebar color
+const getCategoryBarColor = (id: string) => {
+    const colors: Record<string, string> = {
+        green: 'bg-green-500',
+        blue: 'bg-blue-500',
+        red: 'bg-red-500',
+        yellow: 'bg-yellow-500',
+        purple: 'bg-purple-500',
+        gray: 'bg-gray-400',
+        pink: 'bg-pink-500',
+        orange: 'bg-orange-500',
     };
-  });
-
-  return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-      {particles.map((p) => (
-        <motion.div
-          key={p.id}
-          initial={{ x: 0, y: 0, scale: 0.5, opacity: 1 }}
-          animate={{ x: p.x, y: p.y, scale: 0, opacity: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className={`absolute w-1.5 h-1.5 rounded-full ${p.id % 2 === 0 ? 'bg-brand-400' : 'bg-blue-400'}`}
-        />
-      ))}
-    </div>
-  );
+    return colors[id] || 'bg-gray-400';
 };
 
-// --- Illustration Components for Empty States ---
+// --- Illustration Components ---
 
 const EmptyCartIllustration = () => (
   <svg width="160" height="160" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -119,10 +106,8 @@ const EmptyPantryIllustration = () => (
 // --- Swipe Logic Component ---
 interface SwipeableItemProps {
     children: React.ReactNode;
-    onSwipeLeft?: () => void; // Usually Delete
-    onSwipeRight?: () => void; // Usually Complete
-    leftColor?: string;
-    rightColor?: string;
+    onSwipeLeft?: () => void;
+    onSwipeRight?: () => void;
     isViewer?: boolean;
     disableSwipe?: boolean;
     completed?: boolean;
@@ -139,12 +124,8 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     const x = useMotionValue(0);
     const containerRef = React.useRef<HTMLDivElement>(null);
 
-    // Visual Feedback Transforms
-    // Right Drag (Positive X) -> Complete
     const rightOpacity = useTransform(x, [50, 100], [0, 1]);
     const rightScale = useTransform(x, [50, 100], [0.8, 1]);
-    
-    // Left Drag (Negative X) -> Delete
     const leftOpacity = useTransform(x, [-50, -100], [0, 1]);
     const leftScale = useTransform(x, [-50, -100], [0.8, 1]);
 
@@ -162,38 +143,33 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     if (isViewer || disableSwipe) return <>{children}</>;
 
     return (
-        <div className="relative overflow-hidden rounded-2xl" ref={containerRef}>
-            {/* Background Layer: Swipe Right (Complete) */}
+        <div className="relative overflow-hidden rounded-xl" ref={containerRef}>
             {onSwipeRight && (
                 <motion.div 
                     style={{ opacity: rightOpacity, scale: rightScale }}
-                    className={`absolute inset-y-0 left-0 w-full flex items-center justify-start pl-6 rounded-2xl ${completed ? 'bg-blue-500' : 'bg-green-500'} text-white z-0`}
+                    className={`absolute inset-y-0 left-0 w-full flex items-center justify-start pl-6 rounded-xl ${completed ? 'bg-blue-500' : 'bg-green-500'} text-white z-0`}
                 >
                     {completed ? <UndoIcon /> : <CheckCircleIcon />}
                     <span className="font-bold ml-2 text-sm">{completed ? "Desmarcar" : "Concluir"}</span>
                 </motion.div>
             )}
-
-            {/* Background Layer: Swipe Left (Delete) */}
             {onSwipeLeft && (
                 <motion.div 
                     style={{ opacity: leftOpacity, scale: leftScale }}
-                    className="absolute inset-y-0 right-0 w-full flex items-center justify-end pr-6 rounded-2xl bg-red-500 text-white z-0"
+                    className="absolute inset-y-0 right-0 w-full flex items-center justify-end pr-6 rounded-xl bg-red-500 text-white z-0"
                 >
                     <span className="font-bold mr-2 text-sm">Excluir</span>
                     <TrashIcon />
                 </motion.div>
             )}
-
-            {/* Foreground Content */}
             <motion.div
                 drag="x"
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={{ left: 0.5, right: 0.5 }}
                 onDragEnd={handleDragEnd}
                 style={{ x }}
-                className="relative z-10 rounded-2xl"
-                whileTap={{ scale: 0.98 }}
+                className="relative z-10 rounded-xl"
+                whileTap={{ scale: 0.99 }}
             >
                 {children}
             </motion.div>
@@ -201,17 +177,15 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     );
 };
 
-
 // --- Internal Components ---
 
-// Define animation variants for smooth list changes
 const itemVariants = {
   hidden: { opacity: 0, y: 10, height: 0, marginBottom: 0 },
   visible: { 
     opacity: 1, 
     y: 0, 
     height: "auto", 
-    marginBottom: 8, // maps to mb-2 or space-y-2 logic roughly
+    marginBottom: 8, 
     transition: { type: "spring", stiffness: 300, damping: 24 } 
   },
   exit: { 
@@ -244,7 +218,7 @@ const StaticShoppingItem = ({
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="rounded-2xl"
+          className="rounded-xl"
         >
              <SwipeableItem
                 isViewer={isViewer}
@@ -283,7 +257,7 @@ const DraggableShoppingItem = ({
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="relative rounded-2xl my-2"
+        className="relative rounded-xl my-2"
     >
          <SwipeableItem
             isViewer={isViewer}
@@ -328,7 +302,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
     return { color: 'bg-green-500', border: 'border-green-500', label: 'Ideal' };
   };
 
-  // Shared content renderer to avoid duplication
+  // CLEAN DESIGN RENDERER
   const renderItemContent = (
       item: ShoppingItem, 
       categories: Category[], 
@@ -344,9 +318,8 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
   ) => {
       const category = categories.find((c: any) => c.name === item.category) || 
                        categories.find((c: any) => c.name === 'Outros');
-      const palette = category 
-        ? (COLOR_PALETTES.find(p => p.id === category.colorId) || DEFAULT_COLOR) 
-        : DEFAULT_COLOR;
+      // Sidebar color ID logic
+      const barColorClass = getCategoryBarColor(category?.colorId || 'gray');
 
       // --- PANTRY VIEW ---
       if (isPantry) {
@@ -355,29 +328,22 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
           const status = getPantryStatus(current, ideal);
 
           return (
-            <div className={`relative group backdrop-blur-sm p-3 flex items-center justify-between border border-gray-100 dark:border-gray-700 rounded-2xl bg-white/80 dark:bg-gray-800/80 shadow-lg shadow-gray-200/40 dark:shadow-none hover:shadow-xl hover:shadow-brand-100/30 dark:hover:shadow-none transition-all duration-300`}>
+            <div className={`relative group backdrop-blur-sm p-3 flex items-center justify-between border border-gray-100 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-sm transition-all duration-300`}>
               <div className="flex items-center gap-2 flex-1 overflow-hidden">
                  {/* Drag Handle */}
                  {isDraggable && !isViewer && (
-                    <div onPointerDown={(e) => dragControls?.start(e)} className="touch-none p-1 -ml-1 cursor-grab active:cursor-grabbing">
+                    <div onPointerDown={(e) => dragControls?.start(e)} className="touch-none p-1 -ml-1 cursor-grab active:cursor-grabbing text-gray-300">
                         <DragHandleIcon />
                     </div>
                  )}
 
                  <div className="flex items-center gap-3 flex-1 overflow-hidden" onClick={() => !isViewer && onEdit(item)}>
                     <div className="flex flex-col items-center justify-center gap-1 min-w-[32px]">
-                        <div className={`w-3 h-3 rounded-full ${status.color} shadow-sm`} title={status.label} />
+                        <div className={`w-3 h-3 rounded-full ${status.color}`} title={status.label} />
                     </div>
                     <div className={`flex flex-col overflow-hidden flex-1 ${!isViewer ? 'cursor-pointer' : ''}`}>
                         <span className="text-base font-medium text-gray-800 dark:text-gray-200 truncate">{item.name}</span>
-                        <div className="flex items-center gap-2 mt-0.5">
-                           {!groupByCategory && item.category && (
-                            <span className={`text-[10px] uppercase tracking-wider font-bold w-fit px-1.5 py-0.5 rounded ${palette.bg} ${palette.text}`}>
-                              {item.category}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-gray-400 font-medium hidden sm:inline-block">Status: {status.label}</span>
-                        </div>
+                        <span className="text-[10px] text-gray-400 font-medium">Estoque: {current} / {ideal}</span>
                     </div>
                  </div>
               </div>
@@ -391,10 +357,8 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                     >
                       -
                     </button>
-                    <div className="flex flex-col items-center w-12 px-1">
+                    <div className="flex flex-col items-center w-8">
                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">{current}</span>
-                       <div className="h-px w-full bg-gray-300 dark:bg-gray-500 my-0.5"></div>
-                       <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-none font-medium">{ideal}</span>
                     </div>
                     <button 
                        onClick={(e) => { e.stopPropagation(); onUpdateQuantity && onUpdateQuantity(item.id, 1); }}
@@ -404,102 +368,97 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                       +
                     </button>
                  </div>
-                 {/* Only Edit Icon remains, Trash is via Swipe */}
-                 {!isViewer && (
-                     <button onClick={() => onEdit(item)} className="p-2 text-gray-400 hover:text-brand-500 transition-colors focus:outline-none"><EditIcon /></button>
-                 )}
               </div>
             </div>
           );
       }
 
-      // --- SHOPPING LIST VIEW ---
+      // --- SHOPPING LIST VIEW (RIGID 3-COLUMN GRID) ---
       const quantity = item.quantity || 1;
-      const hasPrice = item.price !== undefined && item.price > 0;
-      const totalItemPrice = hasPrice ? (item.price! * quantity) : 0;
+      const totalValue = item.price ? (item.price * quantity) : 0;
+      const formattedPrice = totalValue > 0 ? formatCurrency(totalValue) : null;
 
       return (
         <div 
-            className={`relative group backdrop-blur-sm p-3 flex items-center justify-between rounded-2xl transition-all duration-300
-            ${item.completed 
-                ? 'opacity-60 bg-gray-50/50 dark:bg-gray-800/30 border border-transparent' 
-                : 'bg-white/80 dark:bg-gray-800/80 border border-white/60 dark:border-gray-700/60 shadow-lg shadow-gray-200/40 dark:shadow-none hover:shadow-xl hover:shadow-brand-100/50 dark:hover:shadow-none hover:-translate-y-0.5'
-            }
-            `}
+            className={`group relative flex items-center bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all hover:shadow-md overflow-hidden ${item.completed ? 'opacity-60 bg-gray-50 dark:bg-gray-900/50' : ''}`}
         >
-          <div className="flex items-center gap-2 flex-1 overflow-hidden">
-             {/* Drag Handle */}
+          {/* A. VISUAL INDICATOR (Absolute Sidebar) */}
+          <div className={`absolute left-0 inset-y-0 w-1 ${item.completed ? 'bg-gray-300 dark:bg-gray-600' : barColorClass}`} />
+
+          {/* B. CHECKBOX COLUMN (Fixed width, generous click area) */}
+          <div 
+            className="pl-4 pr-3 py-4 cursor-pointer flex-shrink-0 flex items-center h-full"
+            onClick={(e) => { e.stopPropagation(); onToggle(item.id); }}
+          >
+             {/* Drag Handle (Conditional) */}
              {isDraggable && !isViewer && !item.completed && (
-                <div onPointerDown={(e) => dragControls?.start(e)} className="touch-none p-1 -ml-1 cursor-grab active:cursor-grabbing">
+                <div onPointerDown={(e) => dragControls?.start(e)} className="touch-none mr-2 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing">
                     <DragHandleIcon />
                 </div>
              )}
 
-            <div className="flex items-center gap-3 flex-1 overflow-hidden">
-              <button
-                  onClick={(e) => { e.stopPropagation(); onToggle(item.id); }}
-                  disabled={isViewer}
-                  className={`relative flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                  isViewer 
-                      ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 cursor-not-allowed'
-                      : (item.completed ? 'bg-brand-500 border-brand-500' : 'border-gray-300 dark:border-gray-500 hover:border-brand-400 hover:scale-110 active:scale-90')
-                  }`}
-              >
-                  {/* Confetti Explosion on Complete */}
-                  {item.completed && <CompletionParticles />}
-                  
-                  <motion.div
-                    initial={false}
-                    animate={{ scale: item.completed ? 1 : 0, opacity: item.completed ? 1 : 0 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                  >
-                      {item.completed && <CheckIcon />}
-                  </motion.div>
-              </button>
-              
-              <div 
-                  className={`flex flex-col overflow-hidden flex-1 ${!isViewer ? 'cursor-pointer' : ''}`}
-                  onClick={() => !isViewer && onEdit(item)}
-              >
-                  <div className="flex items-center gap-2">
-                    <span className={`text-base font-medium truncate ${item.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}>
-                        {item.name}
-                    </span>
-                    {quantity > 1 && (
-                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                        x{quantity}
-                        </span>
-                    )}
-                  </div>
-
-                  {item.note && (
-                    <p className={`text-[11px] leading-tight truncate mt-0.5 ${item.completed ? 'text-gray-300 line-through' : 'text-gray-500 dark:text-gray-400 italic'}`}>
-                        {item.note}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {!groupByCategory && item.category && (
-                        <span className={`text-[10px] uppercase tracking-wider font-bold w-fit px-1.5 py-0.5 rounded ${palette.bg} ${palette.text}`}>
-                        {item.category}
-                        </span>
-                    )}
-                    {hasPrice && (
-                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                        {formatCurrency(totalItemPrice)}
-                        </span>
-                    )}
-                  </div>
-              </div>
+            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all relative ${
+                item.completed 
+                ? 'bg-green-500 border-green-500' 
+                : 'border-gray-300 dark:border-gray-500 group-hover:border-brand-400'
+            }`}>
+                {item.completed && <CheckIcon />}
             </div>
           </div>
 
-          {!isViewer && (
-              <div className="flex items-center gap-1">
-                 <button onClick={() => onEdit(item)} className="p-2 text-gray-400 hover:text-brand-500 transition-colors focus:outline-none"><EditIcon /></button>
-                 {/* Trash icon removed to encourage swipe */}
-              </div>
-          )}
+          {/* C. CONTENT COLUMN (Flexible) */}
+          <div 
+            className="flex-1 min-w-0 py-3 pr-2 cursor-pointer flex flex-col justify-center" 
+            onClick={() => !isViewer && onEdit(item)}
+          >
+            {/* Top Row: Name and Quantity */}
+            <div className="flex items-center gap-2 mb-0.5">
+                <span className={`text-base font-medium truncate leading-tight ${item.completed ? 'text-gray-500 line-through' : 'text-gray-900 dark:text-gray-100'}`}>
+                    {item.name}
+                </span>
+                
+                {quantity > 1 && (
+                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-600">
+                        {quantity}un
+                    </span>
+                )}
+            </div>
+
+            {/* Bottom Row: Metadata (Category • Note) */}
+            <div className="flex items-center gap-1.5 text-xs text-gray-400 truncate">
+                {!groupByCategory && (
+                    <span className="uppercase font-bold tracking-wider text-[9px] text-gray-400">
+                        {item.category || 'Geral'}
+                    </span>
+                )}
+                
+                {!groupByCategory && item.note && (
+                    <span className="text-[8px] text-gray-300">•</span>
+                )}
+
+                {item.note && (
+                    <span className="italic truncate max-w-[150px]">{item.note}</span>
+                )}
+            </div>
+          </div>
+
+          {/* D. PRICE/ACTION COLUMN (Right aligned) */}
+          <div className="flex flex-col items-end justify-center pr-4 pl-2 py-2 gap-1 text-right border-l border-transparent group-hover:border-gray-50 dark:group-hover:border-gray-700 transition-colors h-full min-w-[70px]">
+              
+              {/* Price */}
+              {formattedPrice && (
+                  <span className={`font-bold text-sm tabular-nums tracking-tight ${item.completed ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                      {formattedPrice}
+                  </span>
+              )}
+
+              {/* Edit Hint / No Price Placeholder */}
+              {!formattedPrice && !isViewer && (
+                 <span className="text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <EditIcon />
+                 </span>
+              )}
+          </div>
         </div>
       );
   };
@@ -514,7 +473,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
         const completedItems = items.filter(i => i.completed);
 
         return (
-            <div className="space-y-3 pb-4">
+            <div className="space-y-3 pb-32">
                 {/* Active Items: Draggable */}
                 <Reorder.Group 
                     axis="y" 
@@ -524,7 +483,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                             onReorder([...newOrder, ...completedItems]);
                         }
                     }}
-                    className="space-y-3"
+                    className="space-y-2"
                 >
                     <AnimatePresence initial={false} mode='popLayout'>
                         {activeItems.map(item => (
@@ -546,18 +505,18 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                     </AnimatePresence>
                 </Reorder.Group>
 
-                {/* Completed Items: Static (Not reorderable usually) */}
+                {/* Completed Items: Static */}
                 {completedItems.length > 0 && (
                     <>
                         <motion.div 
                           layout
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          className="border-t border-gray-100 dark:border-gray-700 my-2 pt-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider pl-1"
+                          className="border-t border-gray-100 dark:border-gray-700 my-4 pt-4 flex items-center justify-center"
                         >
-                            Concluídos
+                            <span className="text-xs font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest bg-gray-50 dark:bg-gray-900 px-3 -mt-7">Concluídos</span>
                         </motion.div>
-                        <ul className="space-y-3">
+                        <ul className="space-y-2">
                             <AnimatePresence initial={false} mode='popLayout'>
                                 {completedItems.map(item => (
                                     <StaticShoppingItem
@@ -598,12 +557,12 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
       } else if (sortBy === 'created') {
         return b.createdAt - a.createdAt;
       }
-      return 0; // Should not reach here if manual handled above, but fallback
+      return 0;
     });
 
     if (!groupByCategory) {
       return (
-        <ul className="space-y-3 pb-4">
+        <ul className="space-y-2 pb-32">
            <AnimatePresence initial={false} mode='popLayout'>
               {sortedItems.map(item => (
                   <StaticShoppingItem
@@ -634,6 +593,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
         const isCollapsed = collapsedCategories.includes(groupName);
         const completedCount = groupItems.filter(i => i.completed).length;
         const totalCount = groupItems.length;
+        const sidebarColor = getCategoryBarColor(palette.id || 'gray').replace('bg-', 'text-');
         
         return (
           <motion.div layout key={groupName} className="mb-4">
@@ -649,13 +609,13 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                   >
                      <ChevronDownIcon />
                   </motion.div>
-                  <h4 className={`text-xs font-bold uppercase tracking-wider ${palette.text}`}>
+                  <h4 className={`text-xs font-bold uppercase tracking-wider ${sidebarColor} opacity-80`}>
                     {groupName}
                   </h4>
                </div>
                
                <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${completedCount === totalCount ? 'bg-green-100 text-green-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${completedCount === totalCount ? 'bg-green-100 text-green-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                      {completedCount}/{totalCount}
                   </span>
                </div>
@@ -695,7 +655,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
         );
     }
 
-    // Sort categories based on order property before grouping
+    // Sort categories based on order property
     const sortedCategories = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
 
     sortedCategories.forEach(cat => {
@@ -707,16 +667,16 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
       }
     });
 
-    // Handle uncategorized
     const remainingItems = sortedItems.filter(i => !usedItemIds.has(i.id));
     if (remainingItems.length > 0) {
-      groups.push(renderGroup('Outros', remainingItems, { text: 'text-gray-500 dark:text-gray-400' }));
+      groups.push(renderGroup('Outros', remainingItems, { id: 'gray', text: 'text-gray-500 dark:text-gray-400' }));
     }
 
-    return <div>{groups}</div>;
+    return <div className="pb-32">{groups}</div>;
 
   }, [items, categories, groupByCategory, sortBy, isPantry, onUpdateQuantity, isViewer, onReorder, collapsedCategories]);
 
+  // ... (Empty state logic remains the same)
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 select-none animate-fade-in">
@@ -743,7 +703,6 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
           }
         </p>
 
-        {/* Call to Action - Bouncing Arrow */}
         {!isViewer && (
             <div className="animate-bounce text-brand-600 dark:text-brand-400 flex flex-col items-center gap-2 opacity-90 cursor-pointer" onClick={() => document.querySelector('input')?.focus()}>
               <span className="text-sm font-bold bg-brand-50 dark:bg-brand-900/30 px-3 py-1 rounded-full">

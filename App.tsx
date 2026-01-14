@@ -737,19 +737,13 @@ const App: React.FC = () => {
     user, currentTheme: theme, onToggleTheme: toggleTheme
   };
 
-  const headerBgClass = isPantry ? 'bg-orange-50/60 dark:bg-orange-950/60' : 'bg-white/60 dark:bg-gray-900/60';
-
-  const completeButton = (!safeActiveList.archived && completedItemsCount > 0 && !isPantry && !isViewer) ? (
-     <button onClick={() => setIsCompleteModalOpen(true)} className="flex items-center gap-3 pl-4 pr-5 py-2.5 bg-green-600 text-white rounded-full shadow-lg shadow-green-200/50 hover:bg-green-700 active:scale-95 transition-all group animate-slide-up backdrop-blur-sm">
-        <div className="flex items-center justify-center w-5 h-5 bg-green-500 rounded-full text-green-50 border border-green-400 shadow-sm"><span className="text-[10px] font-bold">{completedItemsCount}</span></div>
-        <span className="font-bold text-sm uppercase tracking-wide">Concluir</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:translate-x-1 transition-transform"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-      </button>
-  ) : null;
+  // Header Background Logic (Simplified)
+  const headerBgClass = isPantry ? 'bg-orange-50/80 dark:bg-gray-900/80' : 'bg-white/80 dark:bg-gray-900/80';
 
   const aiChatButton = (enableAIChat && !isViewer && !safeActiveList.archived && !isShoppingMode) ? (
      <button id="ai-chat-button" onClick={() => setIsAIChatOpen(true)} className="absolute bottom-24 right-4 sm:right-6 md:right-8 z-30 p-3.5 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-xl shadow-purple-200/50 hover:scale-105 active:scale-95 transition-all animate-slide-up" title="Assistente IA">
-       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+       {/* Sparkles Icon */}
+       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5h4"/><path d="M19 3v4"/><path d="M15 5h4"/></svg>
        <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse border-2 border-white"></span>
      </button>
   ) : null;
@@ -813,13 +807,13 @@ const App: React.FC = () => {
           </div>
       )}
 
-      <div className={`flex-1 flex flex-col h-full relative w-full ${isPantry ? 'bg-orange-50/30 dark:bg-orange-950/20' : 'bg-gray-50/50 dark:bg-gray-900/50'} ${!isOnline ? 'pt-8' : ''}`}>
+      <div className={`flex-1 flex flex-col h-full relative w-full ${isPantry ? 'bg-orange-50/30 dark:bg-orange-950/20' : 'bg-gray-50 dark:bg-gray-900'} ${!isOnline ? 'pt-8' : ''}`}>
         
-        <header className={`flex-shrink-0 backdrop-blur-xl border-b border-white/20 dark:border-gray-800 px-4 py-3 z-20 transition-colors duration-300 relative ${headerBgClass} shadow-[0_4px_30px_rgba(0,0,0,0.03)]`}>
+        <header className={`flex-shrink-0 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 py-3 z-20 transition-colors duration-300 relative ${headerBgClass}`}>
            <button
              id="menu-toggle" 
              onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
-             className={`hidden lg:flex absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-colors focus:outline-none active:scale-95 hover:bg-black/5 dark:hover:bg-white/10 ${isPantry ? 'text-orange-800 dark:text-orange-200' : 'text-gray-500 dark:text-gray-400'} z-30`}
+             className={`hidden lg:flex absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-colors focus:outline-none active:scale-95 hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 z-30`}
              title={isDesktopSidebarOpen ? "Fechar Menu" : "Abrir Menu"}
              aria-label="Alternar Menu Lateral"
            >
@@ -835,10 +829,10 @@ const App: React.FC = () => {
                <button 
                  id="menu-toggle"
                  onClick={() => setIsDrawerOpen(true)}
-                 className={`lg:hidden p-2 -ml-2 rounded-xl transition-colors focus:outline-none active:bg-gray-200 dark:active:bg-gray-700 ${isPantry ? 'text-orange-800 dark:text-orange-200 hover:bg-orange-100 dark:hover:bg-orange-900/50' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-brand-600'}`}
+                 className={`lg:hidden p-2 -ml-2 rounded-xl transition-colors focus:outline-none active:bg-gray-200 dark:active:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
                  aria-label="Abrir Menu"
                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
                </button>
 
                <div className="flex flex-col items-start" id="header-title">
@@ -878,7 +872,7 @@ const App: React.FC = () => {
                        </button>
                        <button
                          onClick={() => setIsGenerateModalOpen(true)}
-                         className="flex items-center gap-2 px-3 py-1.5 bg-brand-600 text-white rounded-lg shadow-sm hover:bg-brand-700 transition-colors active:scale-95"
+                         className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                        >
                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                          <span className="text-xs font-bold uppercase tracking-wide hidden sm:inline">Gerar Lista</span>
@@ -888,11 +882,23 @@ const App: React.FC = () => {
                ) : (
                  <>
                    <div className="flex items-center gap-2">
-                      {/* Botão Modo Compras */}
+                      {/* Botão de Concluir (Movido para o Header) */}
+                      {!isViewer && activeList && activeList.items.some(i => i.completed) && (
+                          <button
+                              onClick={() => setIsCompleteModalOpen(true)}
+                              className="p-1.5 px-3 mr-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors flex items-center gap-1.5 border border-green-200 animate-fade-in"
+                              title="Concluir e Arquivar"
+                          >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              <span className="text-xs font-bold uppercase tracking-wide hidden sm:inline">Concluir</span>
+                          </button>
+                      )}
+
+                      {/* Botão Modo Compras (Apenas este tem cor forte) */}
                       {!isShoppingMode && !isViewer && activeList && !safeActiveList.archived && (
                           <button
                               onClick={() => setIsShoppingMode(true)}
-                              className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-transparent hover:border-green-200"
+                              className="p-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
                               title="Iniciar Modo Supermercado (Mantém tela ligada)"
                           >
                               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
@@ -902,22 +908,23 @@ const App: React.FC = () => {
                       {!safeActiveList.archived && !isViewer && (
                           <button
                             onClick={() => setIsScannerOpen(true)}
-                            className="flex items-center justify-center p-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/30 hover:text-brand-600 transition-colors"
+                            className="flex items-center justify-center p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                             title="Ler Cupom Fiscal"
                           >
                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
                           </button>
                       )}
+                      
                       <button 
                           onClick={() => isEditor && setIsBudgetModalOpen(true)}
                           disabled={!!safeActiveList.archived || isViewer}
-                          className={`flex flex-col items-end px-3 py-1.5 rounded-lg border transition-colors ${safeActiveList.budget ? (isOverBudget ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' : 'bg-brand-50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-800') : 'bg-gray-50 dark:bg-gray-800 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                          className={`flex flex-col items-end px-3 py-1.5 rounded-lg transition-colors ${safeActiveList.budget ? 'bg-gray-50 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                           aria-label="Definir Orçamento"
                       >
                           {safeActiveList.budget ? (
                             <>
-                              <span className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>Gasto</span>
-                              <span className={`text-sm font-bold ${isOverBudget ? 'text-red-700 dark:text-red-300' : 'text-brand-700 dark:text-brand-300'}`}>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-500' : 'text-gray-400'}`}>Gasto</span>
+                              <span className={`text-sm font-bold ${isOverBudget ? 'text-red-600' : 'text-gray-700 dark:text-gray-200'}`}>
                                 {formatCurrency(listTotal)}
                                 <span className="text-gray-400 dark:text-gray-500 font-normal text-xs ml-1">/ {formatCurrency(safeActiveList.budget)}</span>
                               </span>
@@ -932,7 +939,7 @@ const App: React.FC = () => {
                    </div>
                    {safeActiveList.budget && (
                     <div className="w-full h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                       <div className={`h-full transition-all duration-500 ease-out rounded-full ${isOverBudget ? 'bg-red-500' : 'bg-brand-500'}`} style={{ width: `${budgetProgress}%` }} />
+                       <div className={`h-full transition-all duration-500 ease-out rounded-full ${isOverBudget ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${budgetProgress}%` }} />
                     </div>
                    )}
                  </>
@@ -945,12 +952,12 @@ const App: React.FC = () => {
           <div className="max-w-3xl mx-auto px-4">
             
             {safeActiveList.archived && (
-              <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-between">
+              <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Esta lista está arquivada (somente leitura).</span>
                 {isEditor && (
                     <button 
                     onClick={() => toggleListArchive(safeActiveList.id, false)}
-                    className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline"
+                    className="text-xs font-bold text-gray-900 dark:text-white hover:underline"
                     >
                     Restaurar
                     </button>
@@ -963,7 +970,7 @@ const App: React.FC = () => {
                 onClick={() => setGroupByCategory(!groupByCategory)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                   groupByCategory 
-                    ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-800' 
+                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600' 
                     : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
@@ -1030,7 +1037,6 @@ const App: React.FC = () => {
                     onAddSimple={addSimpleItem} 
                     onAddSmart={addSmartItems} 
                     isProcessing={isProcessing} 
-                    actionButton={completeButton}
                     isViewer={isViewer}
                 />
             )}
