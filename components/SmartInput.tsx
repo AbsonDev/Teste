@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { logUserEvent } from '../services/firebase';
+import { ITEM_DATABASE } from '../data/itemDatabase';
 
 interface SmartInputProps {
-  onAddSimple: (name: string) => void;
+  onAddSimple: (name: string, category?: string) => void;
   onAddSmart: (prompt: string) => Promise<void>;
   isProcessing: boolean;
   actionButton?: React.ReactNode; 
@@ -11,7 +12,7 @@ interface SmartInputProps {
 
 const SparklesIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/>
   </svg>
 );
 
@@ -25,10 +26,12 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
   const [inputValue, setInputValue] = useState('');
   const [mode, setMode] = useState<'simple' | 'smart'>('simple');
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleMode = () => {
     setMode(prev => prev === 'simple' ? 'smart' : 'simple');
+    setSuggestions([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,6 +40,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
 
     const val = inputValue.trim();
     setError(null);
+    setSuggestions([]);
     
     if (mode === 'smart') {
       try {
@@ -54,7 +58,9 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
         setMode('simple');
       }
     } else {
-      onAddSimple(val);
+      // Auto-categorize if exact match exists in DB even without clicking suggestion
+      const autoCategory = ITEM_DATABASE[val.toLowerCase()] || 'Outros';
+      onAddSimple(val, autoCategory);
       setInputValue('');
     }
   };
@@ -64,9 +70,23 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
     if (error && inputValue) setError(null);
 
     // Only auto-switch if user hasn't manually interacted heavily or if we want to guide them
-    // Product Owner request: allow manual toggle. 
-    // We will keep simple auto-detection for very obvious cases but rely on the button.
     const lowerVal = inputValue.toLowerCase();
+    
+    // Autocomplete Logic for Simple Mode
+    if (mode === 'simple') {
+      if (inputValue.length < 2) {
+        setSuggestions([]);
+      } else {
+        const matches = Object.keys(ITEM_DATABASE)
+          .filter(item => item.toLowerCase().includes(lowerVal))
+          .slice(0, 5); // Limit to 5 suggestions
+        setSuggestions(matches);
+      }
+    } else {
+        setSuggestions([]);
+    }
+
+    // Auto-switch to Smart Mode for obvious AI prompts
     const isObviousSmartCandidate = 
       inputValue.length > 40 || 
       (lowerVal.includes('receita') && lowerVal.length > 10) ||
@@ -75,7 +95,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
     if (isObviousSmartCandidate && mode === 'simple') {
       setMode('smart');
     }
-  }, [inputValue, error]);
+  }, [inputValue, error, mode]);
 
   if (isViewer) {
       return (
@@ -94,6 +114,35 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
           <div className="absolute bottom-full right-0 mb-4 z-10 flex justify-end">
             {actionButton}
           </div>
+        )}
+
+        {/* Autocomplete Suggestions */}
+        {suggestions.length > 0 && mode === 'simple' && (
+          <ul className="absolute bottom-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl mb-3 overflow-hidden z-40 animate-slide-up">
+            {suggestions.map(suggestion => (
+              <li 
+                key={suggestion}
+                onMouseDown={(e) => {
+                   e.preventDefault(); // Prevent input blur
+                   const category = ITEM_DATABASE[suggestion];
+                   // Capitalize first letter for display niceness
+                   const displayVal = suggestion.charAt(0).toUpperCase() + suggestion.slice(1);
+                   onAddSimple(displayVal, category);
+                   setInputValue('');
+                   setSuggestions([]);
+                }}
+                className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center border-b last:border-0 border-gray-100 dark:border-gray-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <span className="text-gray-800 dark:text-gray-200 capitalize">{suggestion}</span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                    {ITEM_DATABASE[suggestion]}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
 
         <form onSubmit={handleSubmit} className="relative flex items-center gap-3">

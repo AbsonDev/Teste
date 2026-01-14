@@ -440,12 +440,13 @@ const App: React.FC = () => {
      saveUserTheme(user.uid, newTheme);
   };
 
-  const addSimpleItem = async (name: string) => {
+  // Updated addSimpleItem to accept category
+  const addSimpleItem = async (name: string, category: string = 'Outros') => {
     if (isViewer) return;
     const newItem: ShoppingItem = { 
       id: generateId(), 
       name, 
-      category: 'Outros', 
+      category, 
       completed: false, 
       createdAt: Date.now(), 
       quantity: 1,

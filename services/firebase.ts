@@ -352,11 +352,11 @@ export const addHistoryLog = async (
 };
 
 export const subscribeToHistory = (userId: string, callback: (logs: HistoryLog[]) => void) => {
+  // To avoid requiring a composite index (userId + createdAt) which requires manual console setup,
+  // we query only by userId and perform sorting and limiting on the client side.
   const q = query(
       collection(db, "historyLogs"), 
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc"),
-      limit(50)
+      where("userId", "==", userId)
   );
 
   return onSnapshot(q, (snapshot) => {
@@ -364,8 +364,10 @@ export const subscribeToHistory = (userId: string, callback: (logs: HistoryLog[]
     snapshot.forEach((doc) => {
       logs.push({ id: doc.id, ...doc.data() } as HistoryLog);
     });
+    // Sort descending by date
     logs.sort((a, b) => b.createdAt - a.createdAt);
-    callback(logs);
+    // Limit to 50 items
+    callback(logs.slice(0, 50));
   }, (error) => {
       console.error("History subscription error:", error);
   });
