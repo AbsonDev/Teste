@@ -1,3 +1,4 @@
+
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -259,198 +260,109 @@ export const updateListInFirestore = async (listId: string, data: Partial<Shoppi
   return updateDoc(ref, data);
 };
 
+// Atomic add functions to prevent race conditions
+export const addItemToList = async (listId: string, item: ShoppingItem) => {
+  const ref = doc(db, "shoppingLists", listId);
+  return updateDoc(ref, {
+    items: arrayUnion(item)
+  });
+};
+
+export const addItemsBatchToList = async (listId: string, items: ShoppingItem[]) => {
+  const ref = doc(db, "shoppingLists", listId);
+  return updateDoc(ref, {
+    items: arrayUnion(...items)
+  });
+};
+
 export const deleteListFromFirestore = async (listId: string) => {
   return deleteDoc(doc(db, "shoppingLists", listId));
 };
 
-// --- Category & Settings ---
-export const subscribeToUserCategories = (userId: string, callback: (cats: Category[]) => void) => {
-    const ref = doc(db, "userSettings", userId);
-    return onSnapshot(ref, (docSnap) => {
-        if (docSnap.exists() && docSnap.data().categories) {
-            callback(docSnap.data().categories);
-        } else {
-             callback([]);
-        }
-    });
-};
+// --- User Settings ---
 
-export const subscribeToUserSettings = (userId: string, callback: (data: any) => void) => {
-    const ref = doc(db, "userSettings", userId);
-    return onSnapshot(ref, (docSnap) => {
-        if (docSnap.exists()) {
-            callback(docSnap.data());
-        } else {
-            callback({});
-        }
-    });
+export const saveUserCategories = async (userId: string, categories: Category[]) => {
+  const ref = doc(db, "users", userId);
+  return setDoc(ref, { categories }, { merge: true });
 };
 
 export const saveUserTheme = async (userId: string, theme: 'light' | 'dark') => {
-    const ref = doc(db, "userSettings", userId);
-    return setDoc(ref, { theme }, { merge: true });
+  const ref = doc(db, "users", userId);
+  return setDoc(ref, { theme }, { merge: true });
 };
 
 export const markTutorialSeen = async (userId: string) => {
-    const ref = doc(db, "userSettings", userId);
+    const ref = doc(db, "users", userId);
     return setDoc(ref, { tutorialSeen: true }, { merge: true });
-}
-
-export const saveUserCategories = async (userId: string, categories: Category[]) => {
-    const ref = doc(db, "userSettings", userId);
-    return setDoc(ref, { categories }, { merge: true });
 };
 
-// --- Price History ---
-export const updatePriceHistory = async (userId: string, items: ShoppingItem[]) => {
-    const pricesToUpdate: Record<string, number> = {};
-    items.forEach(item => {
-        if (item.completed && item.price !== undefined && item.price > 0) {
-            const key = item.name.trim().toLowerCase().replace(/[.#$\[\]]/g, ''); 
-            pricesToUpdate[key] = item.price;
-        }
-    });
-    if (Object.keys(pricesToUpdate).length === 0) return;
-
-    const ref = doc(db, "priceHistory", userId);
-    return setDoc(ref, pricesToUpdate, { merge: true });
-};
-
-export const getLastItemPrice = async (userId: string, itemName: string): Promise<number | null> => {
-    try {
-        const ref = doc(db, "priceHistory", userId);
-        const snapshot = await getDoc(ref);
-        if (snapshot.exists()) {
-            const data = snapshot.data();
-            const key = itemName.trim().toLowerCase().replace(/[.#$\[\]]/g, '');
-            return data[key] || null;
-        }
-    } catch (e) {
-        console.error("Error fetching price history", e);
+export const subscribeToUserSettings = (userId: string, callback: (data: any) => void) => {
+  const ref = doc(db, "users", userId);
+  return onSnapshot(ref, (doc) => {
+    if (doc.exists()) {
+      callback(doc.data());
+    } else {
+      callback({});
     }
-    return null;
-};
-
-// --- History Logs ---
-export const addHistoryLog = async (
-  userId: string, 
-  action: HistoryLog['action'], 
-  details: string,
-  metadata?: HistoryLog['metadata']
-) => {
-  const user = auth.currentUser;
-  const userName = user?.displayName || user?.email || 'Usuário';
-
-  await addDoc(collection(db, "historyLogs"), {
-    userId,
-    userName,
-    action,
-    details,
-    metadata: metadata || {},
-    createdAt: Date.now()
   });
 };
 
-export const subscribeToHistory = (userId: string, callback: (logs: HistoryLog[]) => void) => {
-  // To avoid requiring a composite index (userId + createdAt) which requires manual console setup,
-  // we query only by userId and perform sorting and limiting on the client side.
-  const q = query(
-      collection(db, "historyLogs"), 
-      where("userId", "==", userId)
-  );
+// --- Invites ---
 
-  return onSnapshot(q, (snapshot) => {
-    const logs: HistoryLog[] = [];
-    snapshot.forEach((doc) => {
-      logs.push({ id: doc.id, ...doc.data() } as HistoryLog);
+export const sendInvite = async (listId: string, listName: string, toEmail: string) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+
+    const invitesRef = collection(db, "invites");
+    await addDoc(invitesRef, {
+        listId,
+        listName,
+        invitedBy: user.displayName || user.email,
+        toEmail,
+        createdAt: Date.now(),
+        status: 'pending'
     });
-    // Sort descending by date
-    logs.sort((a, b) => b.createdAt - a.createdAt);
-    // Limit to 50 items
-    callback(logs.slice(0, 50));
-  }, (error) => {
-      console.error("History subscription error:", error);
-  });
 };
 
-// --- Migration ---
-export const migrateLegacyLists = async (userId: string) => {
-    const q = query(collection(db, "shoppingLists"), where("userId", "==", userId));
-    const snapshot = await getDocs(q);
-    
-    const batch = writeBatch(db);
-    let count = 0;
-
-    snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (!data.members || !data.members.includes(userId)) {
-            const userEmail = auth.currentUser?.email || "";
-            batch.update(docSnap.ref, {
-                members: arrayUnion(userId),
-                memberEmails: arrayUnion(userEmail),
-                roles: { [userId]: 'owner' },
-                ownerEmail: userEmail
-            });
-            count++;
-        }
-    });
-
-    if (count > 0) {
-        await batch.commit();
-        console.log(`Migrated ${count} legacy lists.`);
-    }
-};
-
-// --- Sharing & Invites ---
-export const subscribeToInvites = (userEmail: string, callback: (invites: Invite[]) => void) => {
+export const subscribeToInvites = (userEmail: string | null, callback: (invites: Invite[]) => void) => {
     if (!userEmail) return () => {};
-    const q = query(collection(db, "invites"), where("toEmail", "==", userEmail));
+    const q = query(
+        collection(db, "invites"), 
+        where("toEmail", "==", userEmail),
+        where("status", "==", "pending")
+    );
     return onSnapshot(q, (snapshot) => {
         const invites: Invite[] = [];
-        snapshot.forEach((doc) => invites.push({ id: doc.id, ...doc.data() } as Invite));
+        snapshot.forEach(doc => invites.push({ id: doc.id, ...doc.data() } as Invite));
         callback(invites);
     });
 };
 
 export const subscribeToOutgoingInvites = (listId: string, callback: (invites: Invite[]) => void) => {
-    const q = query(collection(db, "invites"), where("listId", "==", listId));
+     const q = query(
+        collection(db, "invites"),
+        where("listId", "==", listId),
+        where("status", "==", "pending")
+    );
     return onSnapshot(q, (snapshot) => {
         const invites: Invite[] = [];
-        snapshot.forEach((doc) => invites.push({ id: doc.id, ...doc.data() } as Invite));
+        snapshot.forEach(doc => invites.push({ id: doc.id, ...doc.data() } as Invite));
         callback(invites);
     });
 };
 
-export const sendInvite = async (listId: string, listName: string, toEmail: string) => {
-    const user = auth.currentUser;
-    if (!user || !user.email) throw new Error("Usuário não autenticado");
-    
-    await addDoc(collection(db, "invites"), {
-        listId,
-        listName,
-        invitedBy: user.email,
-        toEmail,
-        createdAt: Date.now()
-    });
-};
-
-export const cancelInvite = async (inviteId: string) => {
-    await deleteDoc(doc(db, "invites", inviteId));
-};
-
 export const acceptInvite = async (invite: Invite, userId: string) => {
-    const userEmail = auth.currentUser?.email;
-    if (!userEmail) throw new Error("No email");
-
     const batch = writeBatch(db);
-    const listRef = doc(db, "shoppingLists", invite.listId);
     
+    // Add user to list
+    const listRef = doc(db, "shoppingLists", invite.listId);
     batch.update(listRef, {
         members: arrayUnion(userId),
-        memberEmails: arrayUnion(userEmail),
+        memberEmails: arrayUnion(invite.toEmail), 
         [`roles.${userId}`]: 'editor'
     });
 
+    // Delete invite
     const inviteRef = doc(db, "invites", invite.id);
     batch.delete(inviteRef);
 
@@ -461,42 +373,111 @@ export const rejectInvite = async (inviteId: string) => {
     await deleteDoc(doc(db, "invites", inviteId));
 };
 
-export const updateListMemberRole = async (listId: string, targetUserId: string, newRole: Role) => {
+export const cancelInvite = async (inviteId: string) => {
+    await deleteDoc(doc(db, "invites", inviteId));
+};
+
+// --- List Members Management ---
+
+export const updateListMemberRole = async (listId: string, userId: string, newRole: Role) => {
     const listRef = doc(db, "shoppingLists", listId);
-    return updateDoc(listRef, {
-        [`roles.${targetUserId}`]: newRole
+    await updateDoc(listRef, {
+        [`roles.${userId}`]: newRole
     });
 };
 
-export const removeListMember = async (listId: string, targetUserId: string, targetUserEmail: string) => {
+export const removeListMember = async (listId: string, userId: string, userEmail: string) => {
     const listRef = doc(db, "shoppingLists", listId);
     
-    return runTransaction(db, async (transaction) => {
-        const listSnap = await transaction.get(listRef);
-        if (!listSnap.exists()) throw new Error("Lista não encontrada");
+    await runTransaction(db, async (transaction) => {
+        const listDoc = await transaction.get(listRef);
+        if (!listDoc.exists()) throw new Error("List not found");
         
-        const data = listSnap.data();
-        let members = (data.members || []) as string[];
-        let memberEmails = (data.memberEmails || []) as string[];
-        const roles = { ...(data.roles || {}) };
-        
-        const memberIndex = members.indexOf(targetUserId);
+        const data = listDoc.data();
+        const roles = data.roles || {};
+        delete roles[userId];
 
-        if (memberIndex !== -1) {
-            members = members.filter((_, i) => i !== memberIndex);
-            if (memberIndex < memberEmails.length) {
-                memberEmails = memberEmails.filter((_, i) => i !== memberIndex);
-            }
-        } else {
-            members = members.filter(id => id !== targetUserId);
-        }
-        
-        delete roles[targetUserId];
-        
         transaction.update(listRef, {
-            members,
-            memberEmails,
-            roles
+            members: data.members.filter((uid: string) => uid !== userId),
+            memberEmails: data.memberEmails ? data.memberEmails.filter((email: string) => email !== userEmail) : [],
+            roles: roles
         });
     });
+};
+
+// --- History ---
+
+export const addHistoryLog = async (userId: string, action: string, details: string, metadata?: any) => {
+    await addDoc(collection(db, "history"), {
+        userId,
+        action,
+        details,
+        metadata: metadata || null,
+        createdAt: Date.now()
+    });
+};
+
+export const subscribeToHistory = (userId: string, callback: (logs: HistoryLog[]) => void) => {
+    const q = query(
+        collection(db, "history"),
+        where("userId", "==", userId),
+        orderBy("createdAt", "desc"),
+        limit(50)
+    );
+    return onSnapshot(q, (snapshot) => {
+        const logs: HistoryLog[] = [];
+        snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() } as HistoryLog));
+        callback(logs);
+    });
+};
+
+// --- Price History ---
+
+export const updatePriceHistory = async (userId: string, items: ShoppingItem[]) => {
+    const batch = writeBatch(db);
+    const date = new Date().toISOString().split('T')[0];
+    
+    items.forEach(item => {
+        if (item.price && item.price > 0) {
+            const normalizedName = item.name.trim().toLowerCase();
+            const ref = doc(db, "priceHistory", `${userId}_${normalizedName}`);
+            batch.set(ref, {
+                userId,
+                name: normalizedName,
+                lastPrice: item.price,
+                lastDate: date,
+            }, { merge: true });
+        }
+    });
+    
+    await batch.commit();
+};
+
+export const getLastItemPrice = async (userId: string, itemName: string): Promise<number | null> => {
+    const normalizedName = itemName.trim().toLowerCase();
+    const ref = doc(db, "priceHistory", `${userId}_${normalizedName}`);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+        return snap.data().lastPrice;
+    }
+    return null;
+};
+
+// --- Migration ---
+
+export const migrateLegacyLists = async (userId: string) => {
+    const localLists = localStorage.getItem('lists');
+    if (localLists) {
+        try {
+            const parsed = JSON.parse(localLists);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                for (const l of parsed) {
+                   await addListToFirestore(userId, l);
+                }
+                localStorage.removeItem('lists'); 
+            }
+        } catch (e) {
+            console.error("Migration failed", e);
+        }
+    }
 };

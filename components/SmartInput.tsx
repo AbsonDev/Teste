@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { logUserEvent } from '../services/firebase';
 import { ITEM_DATABASE } from '../data/itemDatabase';
@@ -115,7 +116,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/60 dark:bg-gray-900/90 backdrop-blur-xl border-t border-white/40 dark:border-white/5 z-50 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-300">
+    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/60 dark:bg-gray-900/90 backdrop-blur-xl border-t border-white/40 dark:border-white/5 z-30 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-300">
       <div className="max-w-3xl mx-auto relative">
         
         {/* Floating Action Button Slot */}

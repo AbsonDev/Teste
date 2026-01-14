@@ -65,6 +65,7 @@ export interface ScannedItem {
   originalName: string; // The name found in the user's list (if matched) or the raw name
   receiptName: string; // The text found on the receipt
   price: number;
+  quantity: number; // The quantity found on the receipt
   confidence: 'high' | 'low';
 }
 

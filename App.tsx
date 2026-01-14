@@ -35,7 +35,9 @@ import {
   onMessageListener,
   logUserEvent,
   setAnalyticsUser,
-  setAnalyticsUserProperties
+  setAnalyticsUserProperties,
+  addItemToList,
+  addItemsBatchToList
 } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ShoppingItem, ShoppingListGroup, ScannedItem } from './types';
@@ -459,7 +461,10 @@ const App: React.FC = () => {
       currentQuantity: 1,
       idealQuantity: 2 
     };
-    await updateListInFirestore(activeList.id, { items: [newItem, ...activeList.items] });
+    
+    // Prevent Race Condition: Use Atomic ArrayUnion instead of rewriting the list
+    await addItemToList(activeList.id, newItem);
+    
     addHistoryLog(user.uid, 'add_item', `Adicionou "${name}" em ${activeList.name}`);
   };
 
@@ -502,7 +507,9 @@ const App: React.FC = () => {
         } as ShoppingItem;
       });
 
-      await updateListInFirestore(targetListId, { items: [...newItems, ...listToUpdate.items] });
+      // Prevent Race Condition: Use Atomic ArrayUnion
+      await addItemsBatchToList(targetListId, newItems);
+      
       addHistoryLog(user.uid, 'add_item', `Adicionou ${newItems.length} itens via IA em ${listToUpdate.name}`);
   }
 
@@ -633,9 +640,13 @@ const App: React.FC = () => {
 
           if (match) {
               updatedCount++;
+              // Trust the receipt quantity if available, otherwise default to existing or 1
+              const newQuantity = match.quantity || item.quantity || 1;
+
               return {
                   ...item,
                   price: match.price,
+                  quantity: newQuantity,
                   completed: true // Auto check items found on receipt
               };
           }
@@ -676,7 +687,10 @@ const App: React.FC = () => {
     lists, activeListId, onSelect: setActiveListId, onCreate: createList, onUpdate: updateList, 
     onDelete: deleteList, onToggleArchive: toggleListArchive, onManageCategories: () => setIsCategoryManagerOpen(true),
     onOpenPantry: handleOpenPantry, onShare: (listId: string, listName: string) => { setShareConfig({ isOpen: true, listId }); },
-    onOpenHistory: () => setIsHistoryOpen(true), user, currentTheme: theme, onToggleTheme: toggleTheme
+    onOpenHistory: () => setIsHistoryOpen(true), 
+    onOpenScanner: () => setIsScannerOpen(true),
+    onOpenChef: () => setIsChefModalOpen(true),
+    user, currentTheme: theme, onToggleTheme: toggleTheme
   };
 
   const headerBgClass = isPantry ? 'bg-orange-50/60 dark:bg-orange-950/60' : 'bg-white/60 dark:bg-gray-900/60';

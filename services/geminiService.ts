@@ -158,7 +158,7 @@ export const scanReceipt = async (base64Image: string, expectedItems: string[]):
           {
             text: `
             Analyze this shopping receipt image.
-            Task: Extract items and their UNIT prices.
+            Task: Extract items, their UNIT prices, and QUANTITIES.
             ${expectedStr}
             
             Rules:
@@ -166,7 +166,8 @@ export const scanReceipt = async (base64Image: string, expectedItems: string[]):
             2. If an item is on the receipt but NOT in the expected list, ignore it unless it looks like a major grocery item, then use the receipt name as 'originalName'.
             3. 'receiptName' should be exactly what is written on the paper (e.g. "LEITE UHT INTEGRAL").
             4. Extract the UNIT price (e.g. if 2x 5.00, price is 5.00).
-            5. Return JSON array.
+            5. Extract the QUANTITY (e.g. look for "2x", "2 UN", "QTDE: 2", or if the item appears on multiple lines). If not explicitly found, default to 1.
+            6. Return JSON array.
             `
           }
         ]
@@ -181,9 +182,10 @@ export const scanReceipt = async (base64Image: string, expectedItems: string[]):
               originalName: { type: Type.STRING, description: "The normalized name from the user's list, or the best guess name" },
               receiptName: { type: Type.STRING, description: "The raw text from the receipt" },
               price: { type: Type.NUMBER, description: "The unit price found" },
+              quantity: { type: Type.NUMBER, description: "The quantity purchased found on receipt" },
               confidence: { type: Type.STRING, enum: ["high", "low"], description: "How sure are you of the match?" }
             },
-            required: ["originalName", "receiptName", "price", "confidence"]
+            required: ["originalName", "receiptName", "price", "quantity", "confidence"]
           }
         }
       }

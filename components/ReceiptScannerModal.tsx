@@ -204,7 +204,14 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                         <div className="flex-1 min-w-0">
                            <div className="flex justify-between items-start">
                               <span className="font-bold text-gray-900 dark:text-white truncate">{item.originalName}</span>
-                              <span className="font-bold text-green-600">{formatCurrency(item.price)}</span>
+                              <div className="flex items-center gap-1.5">
+                                 {item.quantity > 1 && (
+                                    <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                        {item.quantity}x
+                                    </span>
+                                 )}
+                                 <span className="font-bold text-green-600">{formatCurrency(item.price)}</span>
+                              </div>
                            </div>
                            <p className="text-xs text-gray-500 truncate" title={item.receiptName}>
                              Cupom: "{item.receiptName}"
