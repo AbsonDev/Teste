@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { logUserEvent } from '../services/firebase';
-import { useTranslation } from 'react-i18next';
 
 interface SmartInputProps {
   onAddSimple: (name: string) => void;
@@ -23,7 +22,6 @@ const PlusIcon = () => (
 );
 
 export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart, isProcessing, actionButton, isViewer }) => {
-  const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const [mode, setMode] = useState<'simple' | 'smart'>('simple');
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +105,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder={mode === 'smart' ? t('add_smart_ph') : t('add_simple_ph')}
+              placeholder={mode === 'smart' ? "Descreva o que precisa..." : "Adicionar item..."}
               className={`w-full pl-10 pr-4 py-3.5 rounded-2xl border-2 outline-none text-base transition-all duration-300 shadow-inner ${
                 error 
                   ? 'border-red-300 bg-red-50/80 text-red-900 dark:bg-red-900/40 dark:text-red-100 dark:border-red-800 focus:border-red-400 placeholder-red-300'
@@ -145,7 +143,7 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
                 </span>
              ) : (
                 <span className={`text-purple-600 dark:text-purple-400 font-medium flex items-center justify-center gap-1 transition-all duration-300 absolute inset-0 ${mode === 'smart' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
-                    <SparklesIcon className="w-3 h-3" /> {t('smart_detected')}
+                    <SparklesIcon className="w-3 h-3" /> IA detectada: criando lista inteligente...
                 </span>
              )}
         </div>

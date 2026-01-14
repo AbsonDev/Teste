@@ -1,6 +1,5 @@
 import { GoogleGenAI, Type, FunctionDeclaration, Chat } from "@google/genai";
 import { ShoppingItem } from "../types";
-import * as Sentry from "@sentry/react";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -73,9 +72,6 @@ export const generateSmartList = async (prompt: string, availableCategories: str
 
   } catch (error) {
     console.error("Error generating smart list:", error);
-    Sentry.captureException(error, {
-      tags: { service: 'gemini_ai' }
-    });
     throw error;
   }
 };

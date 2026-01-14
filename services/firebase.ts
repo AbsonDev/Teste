@@ -8,24 +8,24 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged
 } from "firebase/auth";
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  arrayUnion, 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  onSnapshot, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
-  getDoc, 
-  getDocs, 
-  writeBatch, 
-  runTransaction 
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  writeBatch,
+  arrayUnion,
+  runTransaction
 } from "firebase/firestore";
 import { 
   getMessaging, 

@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { ShoppingItem, Category, COLOR_PALETTES, DEFAULT_COLOR } from '../types';
 import { Reorder, useDragControls, useMotionValue, useTransform, motion, PanInfo, AnimatePresence } from "framer-motion";
-import { useTranslation } from 'react-i18next';
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -307,7 +306,6 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
   onUpdateQuantity,
   isViewer = false
 }) => {
-  const { t } = useTranslation();
   
   const getPantryStatus = (current: number, ideal: number) => {
     if (current <= 0) return { color: 'bg-red-500', border: 'border-red-500', label: 'Esgotado' };
@@ -702,13 +700,13 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
         </div>
 
         <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-          {isPantry ? t('empty_pantry_title') : t('empty_cart_title')}
+          {isPantry ? "Sua dispensa está vazia" : "O que vamos comprar?"}
         </h3>
         
         <p className="text-gray-500 dark:text-gray-400 max-w-xs mx-auto mb-12 text-sm leading-relaxed">
           {isPantry 
-             ? t('empty_pantry_msg') 
-             : t('empty_cart_msg')
+             ? "Controle o que você tem em casa para evitar desperdícios." 
+             : "Adicione itens manualmente ou use a IA para planejar suas refeições."
           }
         </p>
 
@@ -716,7 +714,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
         {!isViewer && (
             <div className="animate-bounce text-brand-600 dark:text-brand-400 flex flex-col items-center gap-2 opacity-90 cursor-pointer" onClick={() => document.querySelector('input')?.focus()}>
               <span className="text-sm font-bold bg-brand-50 dark:bg-brand-900/30 px-3 py-1 rounded-full">
-                {isPantry ? t('start_here') : t('add_first_item')}
+                {isPantry ? "Comece por aqui" : "Adicione seu primeiro item aqui"}
               </span>
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
             </div>

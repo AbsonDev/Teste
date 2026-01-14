@@ -36,7 +36,6 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { ShoppingItem, ShoppingListGroup } from './types';
 import { useListData } from './hooks/useListData';
-import { useTranslation } from 'react-i18next';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
@@ -45,7 +44,6 @@ const formatCurrency = (val: number) => {
 };
 
 const App: React.FC = () => {
-  const { t } = useTranslation();
   // --- Auth State ---
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -559,7 +557,7 @@ const App: React.FC = () => {
   const completeButton = (!safeActiveList.archived && completedItemsCount > 0 && !isPantry && !isViewer) ? (
      <button onClick={() => setIsCompleteModalOpen(true)} className="flex items-center gap-3 pl-4 pr-5 py-2.5 bg-green-600 text-white rounded-full shadow-lg shadow-green-200/50 hover:bg-green-700 active:scale-95 transition-all group animate-slide-up backdrop-blur-sm">
         <div className="flex items-center justify-center w-5 h-5 bg-green-500 rounded-full text-green-50 border border-green-400 shadow-sm"><span className="text-[10px] font-bold">{completedItemsCount}</span></div>
-        <span className="font-bold text-sm uppercase tracking-wide">{t('complete')}</span>
+        <span className="font-bold text-sm uppercase tracking-wide">Concluir</span>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:translate-x-1 transition-transform"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </button>
   ) : null;
@@ -578,7 +576,7 @@ const App: React.FC = () => {
       {!isOnline && (
          <div className="fixed top-0 left-0 right-0 z-[100] bg-gray-800 text-white text-xs font-bold text-center py-1 flex items-center justify-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-            {t('offline_mode')}
+            Modo Offline
          </div>
       )}
 
@@ -607,7 +605,7 @@ const App: React.FC = () => {
              {deferredPrompt && (
                 <div className="absolute bottom-16 left-4 right-4">
                     <button onClick={handleInstallClick} className="w-full py-2 bg-brand-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-brand-700 transition-colors animate-pulse">
-                        {t('install_app')}
+                        Instalar App
                     </button>
                 </div>
              )}
@@ -619,7 +617,7 @@ const App: React.FC = () => {
       {deferredPrompt && isDrawerOpen && (
           <div className="fixed bottom-4 left-4 right-4 z-[80] lg:hidden">
              <button onClick={handleInstallClick} className="w-full py-3 bg-brand-600 text-white rounded-xl text-sm font-bold shadow-xl hover:bg-brand-700 transition-colors">
-                {t('install_app')}
+                Instalar Aplicativo
             </button>
           </div>
       )}
@@ -667,8 +665,8 @@ const App: React.FC = () => {
                  </div>
                  <span className={`text-xs ${isPantry ? 'text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
                    {isPantry 
-                      ? t('items_in_stock', { count: safeActiveList.items.length - pendingCount })
-                      : t(pendingCount === 1 ? 'pending_item' : 'pending_items', { count: pendingCount })
+                      ? `${safeActiveList.items.length - pendingCount} em estoque`
+                      : `${pendingCount} ${pendingCount === 1 ? 'item pendente' : 'itens pendentes'}`
                    }
                    {isViewer && <span className="ml-2 font-medium text-orange-600 bg-orange-100 dark:bg-orange-900/50 dark:text-orange-300 px-1.5 rounded">Leitor</span>}
                  </span>
@@ -683,7 +681,7 @@ const App: React.FC = () => {
                     className="flex items-center gap-2 px-3 py-1.5 bg-brand-600 text-white rounded-lg shadow-sm hover:bg-brand-700 transition-colors active:scale-95"
                     >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                    <span className="text-xs font-bold uppercase tracking-wide">{t('generate_list')}</span>
+                    <span className="text-xs font-bold uppercase tracking-wide">Gerar Lista</span>
                     </button>
                  )
                ) : (
@@ -696,7 +694,7 @@ const App: React.FC = () => {
                    >
                       {safeActiveList.budget ? (
                         <>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>{t('spent')}</span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>Gasto</span>
                           <span className={`text-sm font-bold ${isOverBudget ? 'text-red-700 dark:text-red-300' : 'text-brand-700 dark:text-brand-300'}`}>
                             {formatCurrency(listTotal)}
                             <span className="text-gray-400 dark:text-gray-500 font-normal text-xs ml-1">/ {formatCurrency(safeActiveList.budget)}</span>
@@ -705,7 +703,7 @@ const App: React.FC = () => {
                       ) : (
                          <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                           <span className="text-xs font-medium">{t('budget')}</span>
+                           <span className="text-xs font-medium">Orçamento</span>
                          </div>
                       )}
                    </button>
@@ -725,13 +723,13 @@ const App: React.FC = () => {
             
             {safeActiveList.archived && (
               <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{t('archived_banner')}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Esta lista está arquivada (somente leitura).</span>
                 {isEditor && (
                     <button 
                     onClick={() => toggleListArchive(safeActiveList.id, false)}
                     className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline"
                     >
-                    {t('restore')}
+                    Restaurar
                     </button>
                 )}
               </div>
@@ -747,7 +745,7 @@ const App: React.FC = () => {
                 }`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-                {t('group_by')}
+                Agrupar
               </button>
 
               <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-0.5">
@@ -755,19 +753,19 @@ const App: React.FC = () => {
                   onClick={() => setSortBy('manual')}
                   className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'manual' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
                 >
-                  {t('sort_manual')}
+                  Manual
                 </button>
                 <button
                   onClick={() => setSortBy('created')}
                   className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'created' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
                 >
-                  {t('sort_recent')}
+                  Recentes
                 </button>
                 <button
                   onClick={() => setSortBy('name')}
                   className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'name' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
                 >
-                  {t('sort_az')}
+                  A-Z
                 </button>
               </div>
             </div>
