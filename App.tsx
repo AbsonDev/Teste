@@ -762,7 +762,7 @@ const App: React.FC = () => {
 
                <div className="flex flex-col items-start" id="header-title"> {/* Added ID */}
                  <div className="flex items-center gap-2">
-                   <div className={`w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse ${isProcessing ? 'block' : 'hidden'}`} title="Processando IA..."></div>
+                   <div className={`w-2.5 h-2.5 bg-purple-500 rounded-full animate-pulse ${isProcessing ? 'block' : 'hidden'}`} title="Processando IA..."></div>
                    <h1 className={`text-xl font-bold leading-none truncate max-w-[200px] sm:max-w-md ${isPantry ? 'text-orange-900 dark:text-orange-100' : 'text-gray-900 dark:text-white'}`}>
                      {safeActiveList.name} 
                      {safeActiveList.archived && <span className="ml-2 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded uppercase tracking-wider">Arquivada</span>}
