@@ -8,26 +8,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged
 } from "firebase/auth";
-import { 
-  getFirestore, 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  setDoc, 
-  getDocs, 
-  writeBatch, 
-  arrayUnion, 
-  getDoc,
-  enableMultiTabIndexedDbPersistence,
-  enableIndexedDbPersistence,
-  orderBy,
-  limit
-} from "firebase/firestore";
+import * as Firestore from "firebase/firestore";
 import { 
   getMessaging, 
   getToken, 
@@ -91,7 +72,7 @@ const firebaseConfig = storedConfig || (hasEnvConfig ? envConfig : defaultFireba
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = Firestore.getFirestore(app);
 
 // --- Messaging (Push Notifications) ---
 export const messaging = typeof window !== 'undefined' && 'serviceWorker' in navigator ? getMessaging(app) : null;
@@ -106,10 +87,10 @@ export const requestNotificationPermission = async (userId: string) => {
       const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
       if (currentToken) {
         // Save token to user profile
-        const userRef = doc(db, "users", userId);
+        const userRef = Firestore.doc(db, "users", userId);
         // Using arrayUnion to allow multiple devices per user
-        await setDoc(userRef, { 
-          fcmTokens: arrayUnion(currentToken),
+        await Firestore.setDoc(userRef, { 
+          fcmTokens: Firestore.arrayUnion(currentToken),
           lastSeen: Date.now()
         }, { merge: true });
         console.log("Notification token saved.");
@@ -137,16 +118,16 @@ export const onMessageListener = () =>
 // --- Enable Offline Persistence ---
 // Note: enableMultiTabIndexedDbPersistence is preferable but not supported in all environments
 try {
-    if (enableMultiTabIndexedDbPersistence) {
-        enableMultiTabIndexedDbPersistence(db).catch((err: any) => {
+    if (Firestore.enableMultiTabIndexedDbPersistence) {
+        Firestore.enableMultiTabIndexedDbPersistence(db).catch((err: any) => {
             if (err.code === 'failed-precondition') {
                 console.warn('Persistence failed: Multiple tabs open');
             } else if (err.code === 'unimplemented') {
                 console.warn('Persistence not supported by browser');
             }
         });
-    } else if (enableIndexedDbPersistence) {
-        enableIndexedDbPersistence(db).catch((err: any) => {
+    } else if (Firestore.enableIndexedDbPersistence) {
+        Firestore.enableIndexedDbPersistence(db).catch((err: any) => {
              console.warn('Persistence failed', err);
         });
     }
@@ -217,12 +198,12 @@ export { onAuthStateChanged };
 
 export const subscribeToUserLists = (userId: string, callback: (lists: ShoppingListGroup[]) => void) => {
   // Query lists where user is in 'members' array
-  const q = query(
-      collection(db, "shoppingLists"), 
-      where("members", "array-contains", userId)
+  const q = Firestore.query(
+      Firestore.collection(db, "shoppingLists"), 
+      Firestore.where("members", "array-contains", userId)
   );
 
-  return onSnapshot(q, (snapshot: any) => {
+  return Firestore.onSnapshot(q, (snapshot: any) => {
     const lists: ShoppingListGroup[] = [];
     snapshot.forEach((doc: any) => {
       lists.push({ id: doc.id, ...doc.data() } as ShoppingListGroup);
@@ -244,23 +225,23 @@ export const addListToFirestore = async (userId: string, listData: Partial<Shopp
     createdAt: Date.now()
   };
   
-  return addDoc(collection(db, "shoppingLists"), newList);
+  return Firestore.addDoc(Firestore.collection(db, "shoppingLists"), newList);
 };
 
 export const updateListInFirestore = async (listId: string, data: Partial<ShoppingListGroup>) => {
-  const ref = doc(db, "shoppingLists", listId);
-  return updateDoc(ref, data);
+  const ref = Firestore.doc(db, "shoppingLists", listId);
+  return Firestore.updateDoc(ref, data);
 };
 
 export const deleteListFromFirestore = async (listId: string) => {
-  return deleteDoc(doc(db, "shoppingLists", listId));
+  return Firestore.deleteDoc(Firestore.doc(db, "shoppingLists", listId));
 };
 
 // --- Category & Settings Services ---
 
 export const subscribeToUserCategories = (userId: string, callback: (cats: Category[]) => void) => {
-    const ref = doc(db, "userSettings", userId);
-    return onSnapshot(ref, (docSnap: any) => {
+    const ref = Firestore.doc(db, "userSettings", userId);
+    return Firestore.onSnapshot(ref, (docSnap: any) => {
         if (docSnap.exists() && docSnap.data().categories) {
             callback(docSnap.data().categories);
         } else {
@@ -270,8 +251,8 @@ export const subscribeToUserCategories = (userId: string, callback: (cats: Categ
 };
 
 export const subscribeToUserSettings = (userId: string, callback: (data: any) => void) => {
-    const ref = doc(db, "userSettings", userId);
-    return onSnapshot(ref, (docSnap: any) => {
+    const ref = Firestore.doc(db, "userSettings", userId);
+    return Firestore.onSnapshot(ref, (docSnap: any) => {
         if (docSnap.exists()) {
             callback(docSnap.data());
         } else {
@@ -281,18 +262,18 @@ export const subscribeToUserSettings = (userId: string, callback: (data: any) =>
 };
 
 export const saveUserTheme = async (userId: string, theme: 'light' | 'dark') => {
-    const ref = doc(db, "userSettings", userId);
-    return setDoc(ref, { theme }, { merge: true });
+    const ref = Firestore.doc(db, "userSettings", userId);
+    return Firestore.setDoc(ref, { theme }, { merge: true });
 };
 
 export const markTutorialSeen = async (userId: string) => {
-    const ref = doc(db, "userSettings", userId);
-    return setDoc(ref, { tutorialSeen: true }, { merge: true });
+    const ref = Firestore.doc(db, "userSettings", userId);
+    return Firestore.setDoc(ref, { tutorialSeen: true }, { merge: true });
 }
 
 export const saveUserCategories = async (userId: string, categories: Category[]) => {
-    const ref = doc(db, "userSettings", userId);
-    return setDoc(ref, { categories }, { merge: true });
+    const ref = Firestore.doc(db, "userSettings", userId);
+    return Firestore.setDoc(ref, { categories }, { merge: true });
 };
 
 // --- Price History Services ---
@@ -312,16 +293,16 @@ export const updatePriceHistory = async (userId: string, items: ShoppingItem[]) 
 
     if (Object.keys(pricesToUpdate).length === 0) return;
 
-    const ref = doc(db, "priceHistory", userId);
+    const ref = Firestore.doc(db, "priceHistory", userId);
     // Merge true ensures we don't overwrite other items' history
-    return setDoc(ref, pricesToUpdate, { merge: true });
+    return Firestore.setDoc(ref, pricesToUpdate, { merge: true });
 };
 
 // Fetch the last known price for a specific item name
 export const getLastItemPrice = async (userId: string, itemName: string): Promise<number | null> => {
     try {
-        const ref = doc(db, "priceHistory", userId);
-        const snapshot = await getDoc(ref);
+        const ref = Firestore.doc(db, "priceHistory", userId);
+        const snapshot = await Firestore.getDoc(ref);
         
         if (snapshot.exists()) {
             const data = snapshot.data();
@@ -345,7 +326,7 @@ export const addHistoryLog = async (
   const user = auth.currentUser;
   const userName = user?.displayName || user?.email || 'Usuário';
 
-  await addDoc(collection(db, "historyLogs"), {
+  await Firestore.addDoc(Firestore.collection(db, "historyLogs"), {
     userId,
     userName,
     action,
@@ -359,14 +340,14 @@ export const subscribeToHistory = (userId: string, callback: (logs: HistoryLog[]
   // Optimized Query: Sort and Limit on Server Side
   // IMPORTANT: This may require creating an index in Firebase Console.
   // URL to create index will appear in console error if missing.
-  const q = query(
-      collection(db, "historyLogs"), 
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc"),
-      limit(50)
+  const q = Firestore.query(
+      Firestore.collection(db, "historyLogs"), 
+      Firestore.where("userId", "==", userId),
+      Firestore.orderBy("createdAt", "desc"),
+      Firestore.limit(50)
   );
 
-  return onSnapshot(q, (snapshot: any) => {
+  return Firestore.onSnapshot(q, (snapshot: any) => {
     const logs: HistoryLog[] = [];
     snapshot.forEach((doc: any) => {
       logs.push({ id: doc.id, ...doc.data() } as HistoryLog);
@@ -385,10 +366,10 @@ export const subscribeToHistory = (userId: string, callback: (logs: HistoryLog[]
 // --- Migration ---
 export const migrateLegacyLists = async (userId: string) => {
     // Find lists created by this user (legacy 'userId' field) but missing 'members' array
-    const q = query(collection(db, "shoppingLists"), where("userId", "==", userId));
-    const snapshot = await getDocs(q);
+    const q = Firestore.query(Firestore.collection(db, "shoppingLists"), Firestore.where("userId", "==", userId));
+    const snapshot = await Firestore.getDocs(q);
     
-    const batch = writeBatch(db);
+    const batch = Firestore.writeBatch(db);
     let count = 0;
 
     snapshot.forEach((docSnap: any) => {
@@ -396,8 +377,8 @@ export const migrateLegacyLists = async (userId: string) => {
         if (!data.members || !data.members.includes(userId)) {
             const userEmail = auth.currentUser?.email || "";
             batch.update(docSnap.ref, {
-                members: arrayUnion(userId),
-                memberEmails: arrayUnion(userEmail),
+                members: Firestore.arrayUnion(userId),
+                memberEmails: Firestore.arrayUnion(userEmail),
                 roles: { [userId]: 'owner' },
                 ownerEmail: userEmail
             });
@@ -415,8 +396,8 @@ export const migrateLegacyLists = async (userId: string) => {
 
 export const subscribeToInvites = (userEmail: string, callback: (invites: Invite[]) => void) => {
     if (!userEmail) return () => {};
-    const q = query(collection(db, "invites"), where("toEmail", "==", userEmail));
-    return onSnapshot(q, (snapshot: any) => {
+    const q = Firestore.query(Firestore.collection(db, "invites"), Firestore.where("toEmail", "==", userEmail));
+    return Firestore.onSnapshot(q, (snapshot: any) => {
         const invites: Invite[] = [];
         snapshot.forEach((doc: any) => invites.push({ id: doc.id, ...doc.data() } as Invite));
         callback(invites);
@@ -424,8 +405,8 @@ export const subscribeToInvites = (userEmail: string, callback: (invites: Invite
 };
 
 export const subscribeToOutgoingInvites = (listId: string, callback: (invites: Invite[]) => void) => {
-    const q = query(collection(db, "invites"), where("listId", "==", listId));
-    return onSnapshot(q, (snapshot: any) => {
+    const q = Firestore.query(Firestore.collection(db, "invites"), Firestore.where("listId", "==", listId));
+    return Firestore.onSnapshot(q, (snapshot: any) => {
         const invites: Invite[] = [];
         snapshot.forEach((doc: any) => invites.push({ id: doc.id, ...doc.data() } as Invite));
         callback(invites);
@@ -436,7 +417,7 @@ export const sendInvite = async (listId: string, listName: string, toEmail: stri
     const user = auth.currentUser;
     if (!user || !user.email) throw new Error("Usuário não autenticado");
     
-    await addDoc(collection(db, "invites"), {
+    await Firestore.addDoc(Firestore.collection(db, "invites"), {
         listId,
         listName,
         invitedBy: user.email,
@@ -446,45 +427,45 @@ export const sendInvite = async (listId: string, listName: string, toEmail: stri
 };
 
 export const cancelInvite = async (inviteId: string) => {
-    await deleteDoc(doc(db, "invites", inviteId));
+    await Firestore.deleteDoc(Firestore.doc(db, "invites", inviteId));
 };
 
 export const acceptInvite = async (invite: Invite, userId: string) => {
     const userEmail = auth.currentUser?.email;
     if (!userEmail) throw new Error("No email");
 
-    const batch = writeBatch(db);
+    const batch = Firestore.writeBatch(db);
     
     // 1. Add user to list
-    const listRef = doc(db, "shoppingLists", invite.listId);
+    const listRef = Firestore.doc(db, "shoppingLists", invite.listId);
     
     batch.update(listRef, {
-        members: arrayUnion(userId),
-        memberEmails: arrayUnion(userEmail),
+        members: Firestore.arrayUnion(userId),
+        memberEmails: Firestore.arrayUnion(userEmail),
         [`roles.${userId}`]: 'editor' // Default role
     });
 
     // 2. Delete invite
-    const inviteRef = doc(db, "invites", invite.id);
+    const inviteRef = Firestore.doc(db, "invites", invite.id);
     batch.delete(inviteRef);
 
     await batch.commit();
 };
 
 export const rejectInvite = async (inviteId: string) => {
-    await deleteDoc(doc(db, "invites", inviteId));
+    await Firestore.deleteDoc(Firestore.doc(db, "invites", inviteId));
 };
 
 export const updateListMemberRole = async (listId: string, targetUserId: string, newRole: Role) => {
-    const listRef = doc(db, "shoppingLists", listId);
-    await updateDoc(listRef, {
+    const listRef = Firestore.doc(db, "shoppingLists", listId);
+    await Firestore.updateDoc(listRef, {
         [`roles.${targetUserId}`]: newRole
     });
 };
 
 export const removeListMember = async (listId: string, targetUserId: string, targetUserEmail: string) => {
-    const listRef = doc(db, "shoppingLists", listId);
-    const listSnap = await getDoc(listRef);
+    const listRef = Firestore.doc(db, "shoppingLists", listId);
+    const listSnap = await Firestore.getDoc(listRef);
     
     if (!listSnap.exists()) throw new Error("Lista não encontrada");
     
@@ -514,7 +495,7 @@ export const removeListMember = async (listId: string, targetUserId: string, tar
     // Remove from roles map
     delete roles[targetUserId];
     
-    await updateDoc(listRef, {
+    await Firestore.updateDoc(listRef, {
         members,
         memberEmails,
         roles
