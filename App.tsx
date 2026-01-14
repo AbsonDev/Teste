@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { ShoppingList } from './components/ShoppingList';
 import { SmartInput } from './components/SmartInput';
 import { ShoppingModeBar } from './components/ShoppingModeBar';
@@ -10,11 +10,6 @@ import { BudgetModal } from './components/BudgetModal';
 import { GenerateListModal } from './components/GenerateListModal';
 import { CompleteListModal } from './components/CompleteListModal';
 import { LoginScreen } from './components/LoginScreen';
-import { ShareListModal } from './components/ShareListModal';
-import { HistoryModal } from './components/HistoryModal';
-import { AIChatModal } from './components/AIChatModal';
-import { ChefModal } from './components/ChefModal';
-import { ReceiptScannerModal } from './components/ReceiptScannerModal';
 import { InvitesToast } from './components/InvitesToast';
 import { ToastUndo } from './components/ToastUndo';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
@@ -44,6 +39,13 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { ShoppingItem, ShoppingListGroup, ScannedItem, Category } from './types';
 import { useListData } from './hooks/useListData';
 import { ITEM_DATABASE } from './data/itemDatabase';
+
+// --- Lazy Loaded Components ---
+const ShareListModal = React.lazy(() => import('./components/ShareListModal').then(module => ({ default: module.ShareListModal })));
+const HistoryModal = React.lazy(() => import('./components/HistoryModal').then(module => ({ default: module.HistoryModal })));
+const AIChatModal = React.lazy(() => import('./components/AIChatModal').then(module => ({ default: module.AIChatModal })));
+const ChefModal = React.lazy(() => import('./components/ChefModal').then(module => ({ default: module.ChefModal })));
+const ReceiptScannerModal = React.lazy(() => import('./components/ReceiptScannerModal').then(module => ({ default: module.ReceiptScannerModal })));
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
@@ -421,8 +423,8 @@ const App: React.FC = () => {
   const updateList = async (id: string, name: string) => {
     await updateListInFirestore(id, { name });
   };
-  const updateListBudget = async (amount: number | undefined) => {
-    await updateListInFirestore(activeListId, { budget: amount });
+  const updateListBudget = async (amount: number | null | undefined) => {
+    await updateListInFirestore(activeListId, { budget: amount === undefined ? null : amount });
     setIsBudgetModalOpen(false);
   };
   const toggleListArchive = async (id: string, archived: boolean) => {
@@ -1012,6 +1014,8 @@ const App: React.FC = () => {
               isPantry={isPantry}
               onUpdateQuantity={updatePantryQuantity}
               isViewer={isViewer}
+              onOpenAI={() => setIsAIChatOpen(true)}
+              onOpenScan={() => setIsScannerOpen(true)}
             />
           </div>
         </main>
@@ -1060,8 +1064,9 @@ const App: React.FC = () => {
         onSave={saveItemEdit} 
         categories={categories}
         isPantry={isPantry}
+        allLists={lists}
       />
-      <BudgetModal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} currentBudget={safeActiveList.budget} onSave={updateListBudget} onClear={() => updateListBudget(undefined)} />
+      <BudgetModal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} currentBudget={safeActiveList.budget} onSave={updateListBudget} onClear={() => updateListBudget(null)} />
       
       <GenerateListModal 
         isOpen={isGenerateModalOpen} 
@@ -1078,44 +1083,56 @@ const App: React.FC = () => {
         purchasedItems={completedItems}
       />
 
-      <ShareListModal 
-        isOpen={shareConfig.isOpen}
-        onClose={() => setShareConfig({ ...shareConfig, isOpen: false })}
-        list={listToShare}
-        currentUser={user}
-      />
+      <Suspense fallback={null}>
+        {shareConfig.isOpen && (
+          <ShareListModal 
+            isOpen={shareConfig.isOpen}
+            onClose={() => setShareConfig({ ...shareConfig, isOpen: false })}
+            list={listToShare}
+            currentUser={user}
+          />
+        )}
 
-      <HistoryModal
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-        userId={user.uid}
-        lists={lists} 
-      />
+        {isHistoryOpen && (
+          <HistoryModal
+            isOpen={isHistoryOpen}
+            onClose={() => setIsHistoryOpen(false)}
+            userId={user.uid}
+            lists={lists} 
+          />
+        )}
 
-      <AIChatModal
-        isOpen={isAIChatOpen}
-        onClose={() => setIsAIChatOpen(false)}
-        categories={categories}
-        currentItems={safeActiveList.items}
-        onAddItems={addItemsBatch}
-        onRemoveItem={deleteItem}
-        onUpdateItem={updateItemBatch}
-      />
+        {isAIChatOpen && (
+          <AIChatModal
+            isOpen={isAIChatOpen}
+            onClose={() => setIsAIChatOpen(false)}
+            categories={categories}
+            currentItems={safeActiveList.items}
+            onAddItems={addItemsBatch}
+            onRemoveItem={deleteItem}
+            onUpdateItem={updateItemBatch}
+          />
+        )}
 
-      <ChefModal
-        isOpen={isChefModalOpen}
-        onClose={() => setIsChefModalOpen(false)}
-        pantryItemNames={isPantry && activeList ? activeList.items.filter(i => (i.currentQuantity || 0) > 0).map(i => i.name) : []}
-        onCook={handleCookRecipe}
-        onShopMissing={handleShopMissing}
-      />
+        {isChefModalOpen && (
+          <ChefModal
+            isOpen={isChefModalOpen}
+            onClose={() => setIsChefModalOpen(false)}
+            pantryItemNames={isPantry && activeList ? activeList.items.filter(i => (i.currentQuantity || 0) > 0).map(i => i.name) : []}
+            onCook={handleCookRecipe}
+            onShopMissing={handleShopMissing}
+          />
+        )}
 
-      <ReceiptScannerModal 
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        expectedItemNames={!isPantry && activeList ? activeList.items.map(i => i.name) : []}
-        onApplyUpdates={handleScanResults}
-      />
+        {isScannerOpen && (
+          <ReceiptScannerModal 
+            isOpen={isScannerOpen}
+            onClose={() => setIsScannerOpen(false)}
+            expectedItemNames={!isPantry && activeList ? activeList.items.map(i => i.name) : []}
+            onApplyUpdates={handleScanResults}
+          />
+        )}
+      </Suspense>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 
+
 export type Role = 'owner' | 'editor' | 'viewer';
 
 export interface ShoppingItem {
@@ -23,7 +24,7 @@ export interface ShoppingListGroup {
   name: string;
   items: ShoppingItem[];
   createdAt: number;
-  budget?: number;
+  budget?: number | null;
   archived?: boolean;
   type?: 'list' | 'pantry';
   userId?: string; // Original creator

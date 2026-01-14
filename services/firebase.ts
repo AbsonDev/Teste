@@ -223,6 +223,27 @@ export const signOut = async () => firebaseSignOut(auth);
 
 export { onAuthStateChanged };
 
+// --- Helper: Clean Undefined Values ---
+// Firestore crashes if undefined is passed. This recursively removes undefined fields.
+const cleanData = (data: any): any => {
+  if (Array.isArray(data)) {
+    return data.map(item => cleanData(item));
+  } else if (data !== null && typeof data === 'object') {
+    // If it's a Firestore specialized object (like FieldValue), don't touch it
+    // Simple check: check constructor name or specific properties if needed.
+    // For now, assuming POJOs for data payload.
+    const cleaned: any = {};
+    Object.keys(data).forEach(key => {
+      const value = data[key];
+      if (value !== undefined) {
+        cleaned[key] = cleanData(value);
+      }
+    });
+    return cleaned;
+  }
+  return data;
+};
+
 // --- List Services ---
 export const subscribeToUserLists = (userId: string, callback: (lists: ShoppingListGroup[]) => void) => {
   const q = query(
@@ -252,26 +273,26 @@ export const addListToFirestore = async (userId: string, listData: Partial<Shopp
     createdAt: Date.now()
   };
   
-  return addDoc(collection(db, "shoppingLists"), newList);
+  return addDoc(collection(db, "shoppingLists"), cleanData(newList));
 };
 
 export const updateListInFirestore = async (listId: string, data: Partial<ShoppingListGroup>) => {
   const ref = doc(db, "shoppingLists", listId);
-  return updateDoc(ref, data);
+  return updateDoc(ref, cleanData(data));
 };
 
 // Atomic add functions to prevent race conditions
 export const addItemToList = async (listId: string, item: ShoppingItem) => {
   const ref = doc(db, "shoppingLists", listId);
   return updateDoc(ref, {
-    items: arrayUnion(item)
+    items: arrayUnion(cleanData(item))
   });
 };
 
 export const addItemsBatchToList = async (listId: string, items: ShoppingItem[]) => {
   const ref = doc(db, "shoppingLists", listId);
   return updateDoc(ref, {
-    items: arrayUnion(...items)
+    items: arrayUnion(...items.map(i => cleanData(i)))
   });
 };
 

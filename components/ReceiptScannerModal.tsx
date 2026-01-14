@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { scanReceipt } from '../services/geminiService';
 import { ScannedItem } from '../types';
 
@@ -17,34 +17,55 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   onApplyUpdates
 }) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    // Cleanup object URL when component unmounts or image changes
+    return () => {
+        if (imagePreview && !imagePreview.startsWith('data:')) {
+            URL.revokeObjectURL(imagePreview);
+        }
+    };
+  }, [imagePreview]);
+
   if (!isOpen) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-        setError(null);
-      };
-      reader.readAsDataURL(file);
+      setImageFile(file);
+      // Use createObjectURL for efficient preview without reading full file into memory yet
+      const objectUrl = URL.createObjectURL(file);
+      setImagePreview(objectUrl);
+      setError(null);
     }
   };
 
+  const convertFileToBase64 = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = error => reject(error);
+          reader.readAsDataURL(file);
+      });
+  };
+
   const handleScan = async () => {
-    if (!imagePreview) return;
+    if (!imageFile) return;
     setIsScanning(true);
     setError(null);
     setScannedItems([]);
     
     try {
-      const results = await scanReceipt(imagePreview, expectedItemNames);
+      // Only convert to base64 when needed for API call
+      const base64Data = await convertFileToBase64(imageFile);
+      
+      const results = await scanReceipt(base64Data, expectedItemNames);
       if (results.length === 0) {
           setError("Não conseguimos identificar itens no cupom. Tente uma foto com melhor iluminação.");
       } else {
@@ -84,6 +105,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
     onClose();
     // Reset state for next time
     setImagePreview(null);
+    setImageFile(null);
     setScannedItems([]);
   };
 
@@ -118,7 +140,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                  <div className="relative w-full h-64 rounded-xl overflow-hidden shadow-md border-2 border-brand-200">
                     <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                     <button 
-                      onClick={() => setImagePreview(null)}
+                      onClick={() => { setImagePreview(null); setImageFile(null); }}
                       className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -230,7 +252,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
         {scannedItems.length > 0 && (
            <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex gap-3">
               <button 
-                onClick={() => { setScannedItems([]); setImagePreview(null); }}
+                onClick={() => { setScannedItems([]); setImagePreview(null); setImageFile(null); }}
                 className="flex-1 py-3 text-sm font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
               >
                 Refazer

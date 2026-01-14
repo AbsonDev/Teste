@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import { ShoppingItem, Category, COLOR_PALETTES, DEFAULT_COLOR } from '../types';
-import { getLastItemPrice, auth } from '../services/firebase';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ShoppingItem, Category, COLOR_PALETTES, DEFAULT_COLOR, ShoppingListGroup } from '../types';
+import { auth } from '../services/firebase';
 
 interface EditItemModalProps {
   item: ShoppingItem | null;
@@ -9,7 +9,8 @@ interface EditItemModalProps {
   onClose: () => void;
   onSave: (id: string, name: string, category: string, price?: number, quantity?: number, currentQuantity?: number, idealQuantity?: number, note?: string) => void;
   categories: Category[];
-  isPantry?: boolean; // New prop
+  isPantry?: boolean;
+  allLists?: ShoppingListGroup[];
 }
 
 export const EditItemModal: React.FC<EditItemModalProps> = ({
@@ -18,7 +19,8 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   onClose,
   onSave,
   categories,
-  isPantry = false
+  isPantry = false,
+  allLists = []
 }) => {
   const [name, setName] = useState('');
   const [categoryName, setCategoryName] = useState('');
@@ -27,7 +29,6 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   const [price, setPrice] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [note, setNote] = useState('');
-  const [lastKnownPrice, setLastKnownPrice] = useState<number | null>(null);
 
   // Pantry Fields
   const [currentQuantity, setCurrentQuantity] = useState('1');
@@ -42,25 +43,39 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
       setNote(item.note || '');
       setCurrentQuantity(item.currentQuantity !== undefined ? item.currentQuantity.toString() : '1');
       setIdealQuantity(item.idealQuantity !== undefined ? item.idealQuantity.toString() : '1');
-      setLastKnownPrice(null);
     }
   }, [item]);
 
-  // Fetch last price when name changes (debounced effectively by being in useEffect dependent on name)
-  useEffect(() => {
-    const fetchLastPrice = async () => {
-        if (name && auth.currentUser) {
-            // Only fetch if name is long enough to be a real item
-            if (name.length > 2) {
-                const price = await getLastItemPrice(auth.currentUser.uid, name);
-                setLastKnownPrice(price);
-            }
+  // --- Lógica de Sugestão de Preço Histórico ---
+  const lastPriceData = useMemo(() => {
+    if (!name || !allLists.length) return null;
+
+    // Ordena listas da mais recente para a mais antiga
+    const sortedLists = [...allLists].sort((a, b) => b.createdAt - a.createdAt);
+
+    for (const list of sortedLists) {
+        if (!list.archived) continue; 
+
+        // Tenta achar um item com nome similar (case insensitive) que tenha preço e foi completado
+        const match = list.items.find(i => 
+            i.completed && 
+            i.price && 
+            i.price > 0 &&
+            i.name.trim().toLowerCase() === name.trim().toLowerCase()
+        );
+
+        if (match) {
+            return { price: match.price };
         }
-    };
-    
-    const timer = setTimeout(fetchLastPrice, 500); // 500ms debounce
-    return () => clearTimeout(timer);
-  }, [name]);
+    }
+    return null;
+  }, [name, allLists]);
+
+  const applySuggestedPrice = () => {
+      if (lastPriceData?.price) {
+          setPrice(lastPriceData.price.toString());
+      }
+  };
 
   if (!isOpen || !item) return null;
 
@@ -79,12 +94,6 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-  };
-
-  const useLastPrice = () => {
-      if (lastKnownPrice) {
-          setPrice(lastKnownPrice.toString());
-      }
   };
 
   return (
@@ -162,14 +171,15 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                   onChange={e => setPrice(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-brand-500 outline-none text-lg"
                 />
-                {lastKnownPrice && (
-                    <div 
-                        onClick={useLastPrice}
-                        className="flex items-center gap-1 mt-1 text-xs text-brand-600 dark:text-brand-400 cursor-pointer hover:underline"
+                {lastPriceData && !price && (
+                    <button 
+                        type="button"
+                        onClick={applySuggestedPrice}
+                        className="text-[10px] text-brand-600 dark:text-brand-400 font-medium mt-1 flex items-center gap-1 hover:underline animate-fade-in"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/></svg>
-                        <span>Último: {formatCurrency(lastKnownPrice)}</span>
-                    </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+                        Último pago: {formatCurrency(lastPriceData.price)}
+                    </button>
                 )}
               </div>
               <div>

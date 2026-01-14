@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 
 interface BudgetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentBudget: number | undefined;
+  currentBudget: number | null | undefined;
   onSave: (amount: number) => void;
   onClear: () => void;
 }
@@ -19,7 +20,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setAmount(currentBudget ? currentBudget.toString() : '');
+      setAmount(currentBudget !== undefined && currentBudget !== null ? currentBudget.toString() : '');
     }
   }, [isOpen, currentBudget]);
 
@@ -56,7 +57,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
           </div>
 
           <div className="flex gap-2">
-            {currentBudget && (
+            {(currentBudget !== undefined && currentBudget !== null) && (
                <button 
                  type="button" 
                  onClick={() => { onClear(); onClose(); }}
