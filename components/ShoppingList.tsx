@@ -263,7 +263,7 @@ const DraggableShoppingItem = memo(({ item, categories, isPantry, isViewer, onTo
 });
 
 // --- Main Component ---
-export const ShoppingList: React.FC<ShoppingListProps> = ({ 
+export const ShoppingList: React.FC<ShoppingListProps> = memo(({ 
   items, categories, groupByCategory, sortBy, onToggle, onDelete, onEdit, onReorder, isPantry = false, onUpdateQuantity, isViewer = false, onOpenScan, onOpenAI
 }) => {
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
@@ -367,7 +367,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
 
     const remainingItems = sortedItems.filter(i => !usedItemIds.has(i.id));
     if (remainingItems.length > 0) {
-        // Render Outros group... (simplified for brevity, logic same as above)
+        // Render Outros group...
         const isCollapsed = collapsedCategories.includes('Outros');
         const completedCount = remainingItems.filter(i => i.completed).length;
         groups.push(
@@ -432,4 +432,4 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
   }
 
   return processedContent;
-};
+});

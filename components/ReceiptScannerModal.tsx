@@ -25,7 +25,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Cleanup object URL when component unmounts or image changes
+    // Cleanup object URL when component unmounts or image changes to avoid memory leaks
     return () => {
         if (imagePreview && !imagePreview.startsWith('data:')) {
             URL.revokeObjectURL(imagePreview);
@@ -62,7 +62,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
     setScannedItems([]);
     
     try {
-      // Only convert to base64 when needed for API call
+      // Only convert to base64 when needed for API call to save memory during UI interaction
       const base64Data = await convertFileToBase64(imageFile);
       
       const results = await scanReceipt(base64Data, expectedItemNames);

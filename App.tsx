@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { ShoppingList } from './components/ShoppingList';
 import { SmartInput } from './components/SmartInput';
 import { ShoppingModeBar } from './components/ShoppingModeBar';
@@ -40,12 +40,12 @@ import { ShoppingItem, ShoppingListGroup, ScannedItem, Category } from './types'
 import { useListData } from './hooks/useListData';
 import { ITEM_DATABASE } from './data/itemDatabase';
 
-// --- Lazy Loaded Components ---
-const ShareListModal = React.lazy(() => import('./components/ShareListModal').then(module => ({ default: module.ShareListModal })));
-const HistoryModal = React.lazy(() => import('./components/HistoryModal').then(module => ({ default: module.HistoryModal })));
-const AIChatModal = React.lazy(() => import('./components/AIChatModal').then(module => ({ default: module.AIChatModal })));
-const ChefModal = React.lazy(() => import('./components/ChefModal').then(module => ({ default: module.ChefModal })));
-const ReceiptScannerModal = React.lazy(() => import('./components/ReceiptScannerModal').then(module => ({ default: module.ReceiptScannerModal })));
+// --- Lazy Loaded Components (Code Splitting) ---
+const ShareListModal = lazy(() => import('./components/ShareListModal').then(module => ({ default: module.ShareListModal })));
+const HistoryModal = lazy(() => import('./components/HistoryModal').then(module => ({ default: module.HistoryModal })));
+const AIChatModal = lazy(() => import('./components/AIChatModal').then(module => ({ default: module.AIChatModal })));
+const ChefModal = lazy(() => import('./components/ChefModal').then(module => ({ default: module.ChefModal })));
+const ReceiptScannerModal = lazy(() => import('./components/ReceiptScannerModal').then(module => ({ default: module.ReceiptScannerModal })));
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
