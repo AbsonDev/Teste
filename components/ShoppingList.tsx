@@ -35,7 +35,7 @@ const EditIcon = () => (
 );
 
 const DragHandleIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 cursor-grab active:cursor-grabbing">
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing">
     <circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>
   </svg>
 );
@@ -78,7 +78,7 @@ const DraggableShoppingItem = ({
           id={item.id}
           dragListener={false}
           dragControls={dragControls}
-          className="group bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between relative"
+          className="group bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between relative"
         >
           <div className="flex items-center gap-2 flex-1 overflow-hidden">
              {/* Handle para Drag */}
@@ -96,7 +96,7 @@ const DraggableShoppingItem = ({
                     <div className={`w-3 h-3 rounded-full ${status.color} shadow-sm`} title={status.label} />
                 </div>
                 <div className={`flex flex-col overflow-hidden flex-1 ${!isViewer ? 'cursor-pointer' : ''}`}>
-                    <span className="text-base font-medium text-gray-800 truncate">{item.name}</span>
+                    <span className="text-base font-medium text-gray-800 dark:text-gray-200 truncate">{item.name}</span>
                     <div className="flex items-center gap-2 mt-0.5">
                        {!groupByCategory && item.category && (
                         <span className={`text-[10px] uppercase tracking-wider font-bold w-fit px-1.5 py-0.5 rounded ${palette.bg} ${palette.text}`}>
@@ -110,22 +110,22 @@ const DraggableShoppingItem = ({
           </div>
 
           <div className="flex items-center gap-3">
-             <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-0.5">
+             <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-0.5">
                 <button 
                   onClick={(e) => { e.stopPropagation(); onUpdateQuantity && onUpdateQuantity(item.id, -1); }}
-                  className={`w-8 h-8 flex items-center justify-center rounded-md transition-all active:scale-95 ${isViewer ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-white hover:text-red-500 hover:shadow-sm'}`}
+                  className={`w-8 h-8 flex items-center justify-center rounded-md transition-all active:scale-95 ${isViewer ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 hover:text-red-500 hover:shadow-sm'}`}
                   disabled={current <= 0 || isViewer}
                 >
                   -
                 </button>
                 <div className="flex flex-col items-center w-12 px-1">
-                   <span className="text-sm font-bold text-gray-800 leading-none">{current}</span>
-                   <div className="h-px w-full bg-gray-300 my-0.5"></div>
-                   <span className="text-[10px] text-gray-500 leading-none font-medium">{ideal}</span>
+                   <span className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">{current}</span>
+                   <div className="h-px w-full bg-gray-300 dark:bg-gray-500 my-0.5"></div>
+                   <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-none font-medium">{ideal}</span>
                 </div>
                 <button 
                    onClick={(e) => { e.stopPropagation(); onUpdateQuantity && onUpdateQuantity(item.id, 1); }}
-                   className={`w-8 h-8 flex items-center justify-center rounded-md transition-all active:scale-95 ${isViewer ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-white hover:text-green-500 hover:shadow-sm'}`}
+                   className={`w-8 h-8 flex items-center justify-center rounded-md transition-all active:scale-95 ${isViewer ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 hover:text-green-500 hover:shadow-sm'}`}
                    disabled={isViewer}
                 >
                   +
@@ -149,7 +149,7 @@ const DraggableShoppingItem = ({
         id={item.id}
         dragListener={false}
         dragControls={dragControls}
-        className={`group bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between ${item.completed ? 'opacity-60 bg-gray-50' : ''}`}
+        className={`group bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between ${item.completed ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''}`}
       >
         <div className="flex items-center gap-2 flex-1 overflow-hidden">
           {/* Handle para Drag (Só aparece se não estiver completo, pois itens completos vão pro fim e não arrastam) */}
@@ -168,8 +168,8 @@ const DraggableShoppingItem = ({
                 disabled={isViewer}
                 className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                 isViewer 
-                    ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    : (item.completed ? 'bg-brand-500 border-brand-500' : 'border-gray-300 hover:border-brand-400')
+                    ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 cursor-not-allowed'
+                    : (item.completed ? 'bg-brand-500 border-brand-500' : 'border-gray-300 dark:border-gray-500 hover:border-brand-400')
                 }`}
             >
                 {item.completed && <CheckIcon />}
@@ -180,11 +180,11 @@ const DraggableShoppingItem = ({
                 onClick={() => !isViewer && onEdit(item)}
             >
                 <div className="flex items-center gap-2">
-                <span className={`text-base font-medium truncate ${item.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                <span className={`text-base font-medium truncate ${item.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}>
                     {item.name}
                 </span>
                 {quantity > 1 && (
-                    <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
                     x{quantity}
                     </span>
                 )}
@@ -197,7 +197,7 @@ const DraggableShoppingItem = ({
                     </span>
                 )}
                 {hasPrice && (
-                    <span className="text-xs font-semibold text-gray-600">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
                     {formatCurrency(totalItemPrice)}
                     </span>
                 )}
@@ -255,14 +255,14 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
       return (
         <li 
           key={item.id} 
-          className="group bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between transition-all duration-200 hover:shadow-md"
+          className="group bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between transition-all duration-200 hover:shadow-md"
         >
           <div className="flex items-center gap-3 flex-1 overflow-hidden" onClick={() => !isViewer && onEdit(item)}>
              <div className="flex flex-col items-center justify-center gap-1 min-w-[32px]">
                 <div className={`w-3 h-3 rounded-full ${status.color} shadow-sm`} title={status.label} />
              </div>
              <div className={`flex flex-col overflow-hidden flex-1 ${!isViewer ? 'cursor-pointer' : ''}`}>
-                <span className="text-base font-medium text-gray-800 truncate">{item.name}</span>
+                <span className="text-base font-medium text-gray-800 dark:text-gray-200 truncate">{item.name}</span>
                 <div className="flex items-center gap-2 mt-0.5">
                    {!groupByCategory && item.category && (
                     <span className={`text-[10px] uppercase tracking-wider font-bold w-fit px-1.5 py-0.5 rounded ${palette.bg} ${palette.text}`}>
@@ -274,22 +274,22 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
              </div>
           </div>
           <div className="flex items-center gap-3">
-             <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-0.5">
+             <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-0.5">
                 <button 
                   onClick={(e) => { e.stopPropagation(); onUpdateQuantity && onUpdateQuantity(item.id, -1); }}
-                  className={`w-8 h-8 flex items-center justify-center rounded-md transition-all active:scale-95 ${isViewer ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-white hover:text-red-500 hover:shadow-sm'}`}
+                  className={`w-8 h-8 flex items-center justify-center rounded-md transition-all active:scale-95 ${isViewer ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 hover:text-red-500 hover:shadow-sm'}`}
                   disabled={current <= 0 || isViewer}
                 >
                   -
                 </button>
                 <div className="flex flex-col items-center w-12 px-1">
-                   <span className="text-sm font-bold text-gray-800 leading-none">{current}</span>
-                   <div className="h-px w-full bg-gray-300 my-0.5"></div>
-                   <span className="text-[10px] text-gray-500 leading-none font-medium">{ideal}</span>
+                   <span className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">{current}</span>
+                   <div className="h-px w-full bg-gray-300 dark:bg-gray-500 my-0.5"></div>
+                   <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-none font-medium">{ideal}</span>
                 </div>
                 <button 
                    onClick={(e) => { e.stopPropagation(); onUpdateQuantity && onUpdateQuantity(item.id, 1); }}
-                   className={`w-8 h-8 flex items-center justify-center rounded-md transition-all active:scale-95 ${isViewer ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-white hover:text-green-500 hover:shadow-sm'}`}
+                   className={`w-8 h-8 flex items-center justify-center rounded-md transition-all active:scale-95 ${isViewer ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 hover:text-green-500 hover:shadow-sm'}`}
                    disabled={isViewer}
                 >
                   +
@@ -310,7 +310,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
     return (
       <li 
         key={item.id} 
-        className={`group bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between transition-all duration-200 hover:shadow-md ${item.completed ? 'opacity-60 bg-gray-50' : ''}`}
+        className={`group bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between transition-all duration-200 hover:shadow-md ${item.completed ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''}`}
       >
         <div className="flex items-center gap-3 flex-1 overflow-hidden">
           <button
@@ -318,8 +318,8 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
             disabled={isViewer}
             className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
               isViewer 
-                ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                : (item.completed ? 'bg-brand-500 border-brand-500' : 'border-gray-300 hover:border-brand-400')
+                ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 cursor-not-allowed'
+                : (item.completed ? 'bg-brand-500 border-brand-500' : 'border-gray-300 dark:border-gray-500 hover:border-brand-400')
             }`}
           >
             {item.completed && <CheckIcon />}
@@ -330,11 +330,11 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
             onClick={() => !isViewer && onEdit(item)}
           >
             <div className="flex items-center gap-2">
-              <span className={`text-base font-medium truncate ${item.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+              <span className={`text-base font-medium truncate ${item.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}>
                 {item.name}
               </span>
               {quantity > 1 && (
-                 <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
                    x{quantity}
                  </span>
               )}
@@ -347,7 +347,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                 </span>
               )}
               {hasPrice && (
-                <span className="text-xs font-semibold text-gray-600">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
                   {formatCurrency(totalItemPrice)}
                 </span>
               )}
@@ -407,7 +407,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                 {/* Completed Items: Static */}
                 {completedItems.length > 0 && (
                     <>
-                        <div className="border-t border-gray-100 my-2 pt-2 text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">
+                        <div className="border-t border-gray-100 dark:border-gray-700 my-2 pt-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider pl-1">
                             Concluídos
                         </div>
                         <ul className="space-y-3">
@@ -474,7 +474,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
     if (remainingItems.length > 0) {
       groups.push(
         <div key="uncategorized" className="mb-6">
-           <h4 className="text-xs font-bold uppercase tracking-wider mb-2 ml-1 text-gray-500">
+           <h4 className="text-xs font-bold uppercase tracking-wider mb-2 ml-1 text-gray-500 dark:text-gray-400">
               Outros / Sem Categoria
             </h4>
             <ul className="space-y-2">
@@ -491,8 +491,8 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4 text-center opacity-60">
-        <div className="bg-gray-200 p-6 rounded-full mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+        <div className="bg-gray-200 dark:bg-gray-700 p-6 rounded-full mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 dark:text-gray-400">
             {isPantry ? (
                <path d="m7.5 4.27 9 5.15M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16ZM3.3 7l8.7 5 8.7-5M12 22v-9"/>
             ) : (
@@ -500,10 +500,10 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
             )}
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-gray-700">
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
           {isPantry ? "Dispensa vazia" : "Sua lista está vazia"}
         </h3>
-        <p className="text-sm text-gray-500 mt-2">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
           {isPantry 
              ? "Adicione itens para controlar o estoque da sua casa."
              : "Adicione itens manualmente ou use a IA para gerar uma lista rapidinho."

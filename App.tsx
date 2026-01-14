@@ -10,24 +10,29 @@ import { CompleteListModal } from './components/CompleteListModal';
 import { LoginScreen } from './components/LoginScreen';
 import { ShareListModal } from './components/ShareListModal';
 import { HistoryModal } from './components/HistoryModal';
-import { AIChatModal } from './components/AIChatModal'; // New Import
+import { AIChatModal } from './components/AIChatModal';
 import { InvitesToast } from './components/InvitesToast';
+import { OnboardingTutorial } from './components/OnboardingTutorial'; // New Import
 import { generateSmartList } from './services/geminiService';
 import { 
   auth, 
   subscribeToUserLists, 
-  subscribeToUserCategories, 
+  subscribeToUserSettings, 
   addListToFirestore, 
   updateListInFirestore, 
   deleteListFromFirestore, 
   saveUserCategories,
+  saveUserTheme,
   migrateLegacyLists,
   subscribeToInvites,
   acceptInvite,
   rejectInvite,
   addHistoryLog,
   initRemoteConfig,
-  getRemoteConfigBoolean
+  getRemoteConfigBoolean,
+  updatePriceHistory,
+  requestNotificationPermission,
+  onMessageListener
 } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ShoppingItem, ShoppingListGroup, Category, DEFAULT_CATEGORIES, Invite } from './types';
@@ -49,6 +54,8 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [hasSeenTutorial, setHasSeenTutorial] = useState(true); // Default true until fetched
 
   // --- Feature Flags (Remote Config) ---
   const [enableAIChat, setEnableAIChat] = useState(false);
@@ -75,6 +82,13 @@ const App: React.FC = () => {
   // Share Modal State with specific List ID
   const [shareConfig, setShareConfig] = useState<{isOpen: boolean, listId: string | null}>({ isOpen: false, listId: null });
 
+  // PWA State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Notifications
+  const [notification, setNotification] = useState<{title: string, body: string} | null>(null);
+
   // --- Auth & Config Effect ---
   useEffect(() => {
     // 1. Init Remote Config
@@ -88,9 +102,72 @@ const App: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
+      
+      // Request Notification Permission on login
+      if (currentUser) {
+          requestNotificationPermission(currentUser.uid);
+      }
     });
     return () => unsubscribe();
   }, []);
+
+  // --- Foreground Notification Listener ---
+  useEffect(() => {
+      // Listen for messages when app is open
+      onMessageListener()
+        .then((payload: any) => {
+            console.log('Foreground Message:', payload);
+            setNotification({
+                title: payload.notification?.title || 'Nova Atualização',
+                body: payload.notification?.body || 'Sua lista foi atualizada.'
+            });
+            // Auto hide after 5 seconds
+            setTimeout(() => setNotification(null), 5000);
+        })
+        .catch(err => console.log('Failed to get foreground message: ', err));
+  }, []);
+
+  // --- PWA & Network Effect ---
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // --- Theme Effect ---
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        }
+        setDeferredPrompt(null);
+      });
+    }
+  };
 
   // --- Firestore Listeners ---
   useEffect(() => {
@@ -130,8 +207,11 @@ const App: React.FC = () => {
       setDataLoading(false);
     });
 
-    const unsubCats = subscribeToUserCategories(user.uid, (syncedCats) => {
-      setCategories(syncedCats);
+    const unsubSettings = subscribeToUserSettings(user.uid, (data) => {
+      if (data.categories) setCategories(data.categories);
+      if (data.theme) setTheme(data.theme);
+      // Check tutorial status (undefined means false/not seen)
+      setHasSeenTutorial(!!data.tutorialSeen);
     });
 
     // Listen for Invites
@@ -141,7 +221,7 @@ const App: React.FC = () => {
 
     return () => {
       unsubLists();
-      unsubCats();
+      unsubSettings();
       unsubInvites();
     };
   }, [user]);
@@ -267,6 +347,10 @@ const App: React.FC = () => {
       setIsCompleteModalOpen(false);
       return;
     }
+
+    // Save Price History
+    // We update prices for all completed items in this session
+    await updatePriceHistory(user.uid, completedItems);
 
     // Only update pantry if requested
     if (addToPantry) {
@@ -398,6 +482,13 @@ const App: React.FC = () => {
     await saveUserCategories(user.uid, newCategories);
   };
 
+  // --- Theme Action ---
+  const toggleTheme = () => {
+     const newTheme = theme === 'light' ? 'dark' : 'light';
+     setTheme(newTheme);
+     saveUserTheme(user.uid, newTheme);
+  };
+
   // --- Item Actions ---
   const addSimpleItem = async (name: string) => {
     if (isViewer) return;
@@ -450,7 +541,16 @@ const App: React.FC = () => {
     if (isViewer) return;
     setIsProcessing(true);
     try {
-      const generatedItems = await generateSmartList(prompt, categories.map(c => c.name));
+      // Find pantry list
+      const pantryList = lists.find(l => l.type === 'pantry');
+      // Get names of items we actually HAVE (quantity > 0)
+      const pantryItemNames = pantryList 
+        ? pantryList.items
+            .filter(i => (i.currentQuantity || 0) > 0)
+            .map(i => i.name)
+        : [];
+
+      const generatedItems = await generateSmartList(prompt, categories.map(c => c.name), pantryItemNames);
       await addItemsBatch(generatedItems);
     } catch (error) {
       console.error(error);
@@ -494,9 +594,9 @@ const App: React.FC = () => {
 
   // --- Render ---
 
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>;
   if (!user) return <LoginScreen />;
-  if (dataLoading && lists.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div><p className="text-gray-400 text-sm">Sincronizando...</p></div>;
+  if (dataLoading && lists.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 gap-4"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div><p className="text-gray-400 text-sm">Sincronizando...</p></div>;
   
   const safeActiveList: ShoppingListGroup = activeList || { 
     id: 'temp', 
@@ -527,17 +627,19 @@ const App: React.FC = () => {
         setShareConfig({ isOpen: true, listId });
     },
     onOpenHistory: () => setIsHistoryOpen(true),
-    user
+    user,
+    currentTheme: theme,
+    onToggleTheme: toggleTheme
   };
 
-  const headerBgClass = isPantry ? 'bg-orange-50/85' : 'bg-white/85';
-  const headerBorderClass = isPantry ? 'border-orange-100' : 'border-gray-100';
+  const headerBgClass = isPantry ? 'bg-orange-50/85 dark:bg-orange-900/85' : 'bg-white/85 dark:bg-gray-900/85';
+  const headerBorderClass = isPantry ? 'border-orange-100 dark:border-orange-800' : 'border-gray-100 dark:border-gray-800';
 
   // Floating Action Button for Complete
   const completeButton = (!safeActiveList.archived && completedItemsCount > 0 && !isPantry && !isViewer) ? (
      <button
         onClick={() => setIsCompleteModalOpen(true)}
-        className="flex items-center gap-3 pl-4 pr-5 py-2.5 bg-green-600 text-white rounded-full shadow-lg shadow-green-200 hover:bg-green-700 active:scale-95 transition-all group animate-slide-up"
+        className="flex items-center gap-3 pl-4 pr-5 py-2.5 bg-green-600 text-white rounded-full shadow-lg shadow-green-200/50 hover:bg-green-700 active:scale-95 transition-all group animate-slide-up"
       >
         <div className="flex items-center justify-center w-5 h-5 bg-green-500 rounded-full text-green-50 border border-green-400 shadow-sm">
            <span className="text-[10px] font-bold">{completedItemsCount}</span>
@@ -550,8 +652,9 @@ const App: React.FC = () => {
   // AI Chat Button (Only if Feature Flag is Enabled)
   const aiChatButton = (enableAIChat && !isViewer && !safeActiveList.archived) ? (
      <button
+        id="ai-chat-button" // Added ID for driver.js
         onClick={() => setIsAIChatOpen(true)}
-        className="absolute bottom-24 right-4 sm:right-6 md:right-8 z-30 p-3.5 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-xl shadow-purple-200 hover:scale-105 active:scale-95 transition-all animate-slide-up"
+        className="absolute bottom-24 right-4 sm:right-6 md:right-8 z-30 p-3.5 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-xl shadow-purple-200/50 hover:scale-105 active:scale-95 transition-all animate-slide-up"
         title="Assistente IA"
      >
        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
@@ -561,32 +664,83 @@ const App: React.FC = () => {
   ) : null;
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden text-gray-900 dark:text-gray-100">
       
+      {/* Onboarding Tutorial Component */}
+      <OnboardingTutorial userId={user.uid} hasSeenTutorial={hasSeenTutorial} />
+
+      {/* Offline Banner */}
+      {!isOnline && (
+         <div className="fixed top-0 left-0 right-0 z-[100] bg-gray-800 text-white text-xs font-bold text-center py-1">
+            Você está offline. Visualizando modo rascunho.
+         </div>
+      )}
+
       <InvitesToast 
         invites={invites} 
         onAccept={(inv) => acceptInvite(inv, user.uid)}
         onReject={rejectInvite}
       />
+      
+      {/* Foreground Notification Toast */}
+      {notification && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-slide-up w-[90%] max-w-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 border border-brand-100 dark:border-gray-700 flex gap-3 items-center cursor-pointer" onClick={() => setNotification(null)}>
+                <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                </div>
+                <div className="flex-1">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">{notification.title}</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{notification.body}</p>
+                </div>
+                <button className="text-gray-400 hover:text-gray-600">
+                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+        </div>
+      )}
 
       {/* --- DESKTOP SIDEBAR --- */}
-      <div className={`hidden lg:block bg-white h-full flex-shrink-0 transition-all duration-300 ease-in-out ${isDesktopSidebarOpen ? 'w-72 border-r border-gray-200' : 'w-0 overflow-hidden border-none'}`}>
-        <div className="w-72 h-full">
-            <ListPanel {...listPanelProps} />
+      <div className={`hidden lg:block bg-white dark:bg-gray-800 h-full flex-shrink-0 transition-all duration-300 ease-in-out ${isDesktopSidebarOpen ? 'w-72 border-r border-gray-200 dark:border-gray-700' : 'w-0 overflow-hidden border-none'}`}>
+        <div className="w-72 h-full relative">
+             <ListPanel {...listPanelProps} />
+             {deferredPrompt && (
+                <div className="absolute bottom-16 left-4 right-4">
+                    <button 
+                        onClick={handleInstallClick}
+                        className="w-full py-2 bg-brand-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-brand-700 transition-colors animate-pulse"
+                    >
+                        Instalar App
+                    </button>
+                </div>
+             )}
         </div>
       </div>
 
       {/* --- MOBILE DRAWER --- */}
       <ListDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} {...listPanelProps} />
+      
+      {/* Install Button in Mobile Drawer (Portal-like injection or check ListDrawer impl) - Actually let's just add it conditionally inside main content for mobile if drawer isn't easy to mod here */}
+      {deferredPrompt && isDrawerOpen && (
+          <div className="fixed bottom-4 left-4 right-4 z-[80] lg:hidden">
+             <button 
+                onClick={handleInstallClick}
+                className="w-full py-3 bg-brand-600 text-white rounded-xl text-sm font-bold shadow-xl hover:bg-brand-700 transition-colors"
+            >
+                Instalar Aplicativo
+            </button>
+          </div>
+      )}
 
       {/* --- MAIN CONTENT --- */}
-      <div className={`flex-1 flex flex-col h-full relative w-full ${isPantry ? 'bg-orange-50/30' : 'bg-gray-50/50'}`}>
+      <div className={`flex-1 flex flex-col h-full relative w-full ${isPantry ? 'bg-orange-50/30 dark:bg-orange-950/20' : 'bg-gray-50/50 dark:bg-gray-900/50'} ${!isOnline ? 'pt-4' : ''}`}>
         
         {/* Header */}
         <header className={`flex-shrink-0 backdrop-blur-md border-b px-4 py-3 z-20 transition-colors duration-300 relative ${headerBgClass} ${headerBorderClass}`}>
            <button
+             id="menu-toggle" // Added ID for driver.js
              onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
-             className={`hidden lg:flex absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-colors focus:outline-none active:scale-95 hover:bg-black/5 ${isPantry ? 'text-orange-800' : 'text-gray-500'} z-30`}
+             className={`hidden lg:flex absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-colors focus:outline-none active:scale-95 hover:bg-black/5 dark:hover:bg-white/10 ${isPantry ? 'text-orange-800 dark:text-orange-200' : 'text-gray-500 dark:text-gray-400'} z-30`}
              title={isDesktopSidebarOpen ? "Fechar Menu" : "Abrir Menu"}
            >
              {isDesktopSidebarOpen ? (
@@ -599,18 +753,19 @@ const App: React.FC = () => {
            <div className="max-w-3xl mx-auto flex items-center justify-between w-full">
              <div className="flex items-center gap-3 lg:pl-10">
                <button 
+                 id="menu-toggle" // Added ID for driver.js (Duplicate ID valid here as only one renders per screen size typically, but driver handles first match)
                  onClick={() => setIsDrawerOpen(true)}
-                 className={`lg:hidden p-2 -ml-2 rounded-xl transition-colors focus:outline-none active:bg-gray-200 ${isPantry ? 'text-orange-800 hover:bg-orange-100' : 'text-gray-500 hover:bg-gray-100 hover:text-brand-600'}`}
+                 className={`lg:hidden p-2 -ml-2 rounded-xl transition-colors focus:outline-none active:bg-gray-200 dark:active:bg-gray-700 ${isPantry ? 'text-orange-800 dark:text-orange-200 hover:bg-orange-100 dark:hover:bg-orange-900/50' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-brand-600'}`}
                >
                   <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
                </button>
 
-               <div className="flex flex-col items-start">
+               <div className="flex flex-col items-start" id="header-title"> {/* Added ID */}
                  <div className="flex items-center gap-2">
                    <div className={`w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse ${isProcessing ? 'block' : 'hidden'}`} title="Processando IA..."></div>
-                   <h1 className={`text-xl font-bold leading-none truncate max-w-[200px] sm:max-w-md ${isPantry ? 'text-orange-900' : 'text-gray-900'}`}>
+                   <h1 className={`text-xl font-bold leading-none truncate max-w-[200px] sm:max-w-md ${isPantry ? 'text-orange-900 dark:text-orange-100' : 'text-gray-900 dark:text-white'}`}>
                      {safeActiveList.name} 
-                     {safeActiveList.archived && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded uppercase tracking-wider">Arquivada</span>}
+                     {safeActiveList.archived && <span className="ml-2 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded uppercase tracking-wider">Arquivada</span>}
                      {safeActiveList.members && safeActiveList.members.length > 1 && (
                         <span className="ml-2 inline-flex align-middle text-blue-500">
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -618,12 +773,12 @@ const App: React.FC = () => {
                      )}
                    </h1>
                  </div>
-                 <span className={`text-xs ${isPantry ? 'text-orange-600' : 'text-gray-500'}`}>
+                 <span className={`text-xs ${isPantry ? 'text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
                    {isPantry 
                       ? `${safeActiveList.items.length - pendingCount} em estoque`
                       : `${pendingCount} ${pendingCount === 1 ? 'item pendente' : 'itens pendentes'}`
                    }
-                   {isViewer && <span className="ml-2 font-medium text-orange-600 bg-orange-100 px-1.5 rounded">Leitor</span>}
+                   {isViewer && <span className="ml-2 font-medium text-orange-600 bg-orange-100 dark:bg-orange-900/50 dark:text-orange-300 px-1.5 rounded">Leitor</span>}
                  </span>
                </div>
              </div>
@@ -644,25 +799,25 @@ const App: React.FC = () => {
                    <button 
                       onClick={() => isEditor && setIsBudgetModalOpen(true)}
                       disabled={!!safeActiveList.archived || isViewer}
-                      className={`flex flex-col items-end px-3 py-1.5 rounded-lg border transition-colors ${safeActiveList.budget ? (isOverBudget ? 'bg-red-50 border-red-200' : 'bg-brand-50 border-brand-200') : 'bg-gray-50 border-transparent hover:bg-gray-100'}`}
+                      className={`flex flex-col items-end px-3 py-1.5 rounded-lg border transition-colors ${safeActiveList.budget ? (isOverBudget ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' : 'bg-brand-50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-800') : 'bg-gray-50 dark:bg-gray-800 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                    >
                       {safeActiveList.budget ? (
                         <>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-600' : 'text-brand-600'}`}>Gasto</span>
-                          <span className={`text-sm font-bold ${isOverBudget ? 'text-red-700' : 'text-brand-700'}`}>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>Gasto</span>
+                          <span className={`text-sm font-bold ${isOverBudget ? 'text-red-700 dark:text-red-300' : 'text-brand-700 dark:text-brand-300'}`}>
                             {formatCurrency(listTotal)}
-                            <span className="text-gray-400 font-normal text-xs ml-1">/ {formatCurrency(safeActiveList.budget)}</span>
+                            <span className="text-gray-400 dark:text-gray-500 font-normal text-xs ml-1">/ {formatCurrency(safeActiveList.budget)}</span>
                           </span>
                         </>
                       ) : (
-                         <div className="flex items-center gap-1 text-gray-500">
+                         <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                            <span className="text-xs font-medium">Orçamento</span>
                          </div>
                       )}
                    </button>
                    {safeActiveList.budget && (
-                    <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="w-full h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                        <div className={`h-full transition-all duration-500 ease-out rounded-full ${isOverBudget ? 'bg-red-500' : 'bg-brand-500'}`} style={{ width: `${budgetProgress}%` }} />
                     </div>
                    )}
@@ -676,12 +831,12 @@ const App: React.FC = () => {
           <div className="max-w-3xl mx-auto px-4">
             
             {safeActiveList.archived && (
-              <div className="mb-4 p-3 bg-gray-100 border border-gray-200 rounded-lg flex items-center justify-between">
-                <span className="text-sm text-gray-600">Esta lista está arquivada (somente leitura).</span>
+              <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Esta lista está arquivada (somente leitura).</span>
                 {isEditor && (
                     <button 
                     onClick={() => toggleListArchive(safeActiveList.id, false)}
-                    className="text-xs font-bold text-brand-600 hover:underline"
+                    className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline"
                     >
                     Restaurar
                     </button>
@@ -694,30 +849,30 @@ const App: React.FC = () => {
                 onClick={() => setGroupByCategory(!groupByCategory)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                   groupByCategory 
-                    ? 'bg-brand-100 text-brand-700 border-brand-200' 
-                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                    ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-800' 
+                    : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
                 Agrupar
               </button>
 
-              <div className="flex items-center bg-white rounded-lg border border-gray-200 p-0.5">
+              <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-0.5">
                 <button
                   onClick={() => setSortBy('manual')}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'manual' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'manual' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
                 >
                   Manual
                 </button>
                 <button
                   onClick={() => setSortBy('created')}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'created' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'created' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
                 >
                   Recentes
                 </button>
                 <button
                   onClick={() => setSortBy('name')}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'name' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${sortBy === 'name' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
                 >
                   A-Z
                 </button>
@@ -743,13 +898,15 @@ const App: React.FC = () => {
         {aiChatButton}
 
         {!safeActiveList.archived && (
-          <SmartInput 
-            onAddSimple={addSimpleItem} 
-            onAddSmart={addSmartItems} 
-            isProcessing={isProcessing} 
-            actionButton={completeButton}
-            isViewer={isViewer}
-          />
+          <div id="smart-input-area"> {/* Added ID wrapper for driver.js */}
+            <SmartInput 
+                onAddSimple={addSimpleItem} 
+                onAddSmart={addSmartItems} 
+                isProcessing={isProcessing} 
+                actionButton={completeButton}
+                isViewer={isViewer}
+            />
+          </div>
         )}
       </div>
 

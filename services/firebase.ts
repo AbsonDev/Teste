@@ -8,18 +8,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged
 } from "firebase/auth";
-import * as firestoreNamespace from "firebase/firestore";
 import { 
-  getRemoteConfig, 
-  fetchAndActivate, 
-  getValue,
-  getBoolean 
-} from "firebase/remote-config";
-import { ShoppingListGroup, Category, Invite, Role, HistoryLog } from "../types";
-
-// Workaround for TypeScript error: "Module 'firebase/firestore' has no exported member..."
-// This ensures the build passes even if type definitions are out of sync.
-const { 
   getFirestore, 
   collection, 
   query, 
@@ -33,8 +22,24 @@ const {
   getDocs, 
   writeBatch, 
   arrayUnion, 
-  getDoc 
-} = firestoreNamespace as any;
+  getDoc,
+  enableMultiTabIndexedDbPersistence,
+  enableIndexedDbPersistence,
+  orderBy,
+  limit
+} from "firebase/firestore";
+import { 
+  getMessaging, 
+  getToken, 
+  onMessage 
+} from "firebase/messaging";
+import { 
+  getRemoteConfig, 
+  fetchAndActivate, 
+  getValue,
+  getBoolean 
+} from "firebase/remote-config";
+import { ShoppingListGroup, Category, Invite, Role, HistoryLog, ShoppingItem } from "../types";
 
 const STORAGE_KEY = 'firebase_config';
 
@@ -88,16 +93,70 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+// --- Messaging (Push Notifications) ---
+export const messaging = typeof window !== 'undefined' && 'serviceWorker' in navigator ? getMessaging(app) : null;
+const VAPID_KEY = 'BHLC-EkI5FM5oyhRQ2_HzZo_Nx1r1zZyeyC0weDy6-gUN0S08l3USJnoaYwii_HewVGsElyM-cL2xOPFNoA8Ky0';
+
+export const requestNotificationPermission = async (userId: string) => {
+  if (!messaging) return;
+  
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+      if (currentToken) {
+        // Save token to user profile
+        const userRef = doc(db, "users", userId);
+        // Using arrayUnion to allow multiple devices per user
+        await setDoc(userRef, { 
+          fcmTokens: arrayUnion(currentToken),
+          lastSeen: Date.now()
+        }, { merge: true });
+        console.log("Notification token saved.");
+      } else {
+        console.log("No registration token available.");
+      }
+    } else {
+      console.log("Notification permission denied.");
+    }
+  } catch (err) {
+    console.error("An error occurred while retrieving token. ", err);
+  }
+};
+
+export const onMessageListener = () =>
+  new Promise((resolve) => {
+    if (messaging) {
+      onMessage(messaging, (payload) => {
+        resolve(payload);
+      });
+    }
+  });
+
+
+// --- Enable Offline Persistence ---
+// Note: enableMultiTabIndexedDbPersistence is preferable but not supported in all environments
+try {
+    if (enableMultiTabIndexedDbPersistence) {
+        enableMultiTabIndexedDbPersistence(db).catch((err: any) => {
+            if (err.code === 'failed-precondition') {
+                console.warn('Persistence failed: Multiple tabs open');
+            } else if (err.code === 'unimplemented') {
+                console.warn('Persistence not supported by browser');
+            }
+        });
+    } else if (enableIndexedDbPersistence) {
+        enableIndexedDbPersistence(db).catch((err: any) => {
+             console.warn('Persistence failed', err);
+        });
+    }
+} catch (e) {
+    // Fallback or ignore if function not available in current SDK version/environment
+    console.warn("Persistence setup warning:", e);
+}
+
+
 // --- Remote Config Setup ---
-/**
- * DOCUMENTATION: REMOTE CONFIG
- * 
- * Para habilitar ou desabilitar funcionalidades remotamente sem precisar de novo deploy:
- * 1. Vá ao Console do Firebase > Remote Config.
- * 2. Adicione um parâmetro chamado 'enable_ai_assistant'.
- * 3. Defina o valor como 'true' (para habilitar) ou 'false' (para desabilitar).
- * 4. Publique as alterações.
- */
 const remoteConfig = getRemoteConfig(app);
 
 // Configurações padrão (caso não consiga buscar do servidor)
@@ -197,7 +256,7 @@ export const deleteListFromFirestore = async (listId: string) => {
   return deleteDoc(doc(db, "shoppingLists", listId));
 };
 
-// --- Category Services ---
+// --- Category & Settings Services ---
 
 export const subscribeToUserCategories = (userId: string, callback: (cats: Category[]) => void) => {
     const ref = doc(db, "userSettings", userId);
@@ -210,9 +269,69 @@ export const subscribeToUserCategories = (userId: string, callback: (cats: Categ
     });
 };
 
+export const subscribeToUserSettings = (userId: string, callback: (data: any) => void) => {
+    const ref = doc(db, "userSettings", userId);
+    return onSnapshot(ref, (docSnap: any) => {
+        if (docSnap.exists()) {
+            callback(docSnap.data());
+        } else {
+            callback({});
+        }
+    });
+};
+
+export const saveUserTheme = async (userId: string, theme: 'light' | 'dark') => {
+    const ref = doc(db, "userSettings", userId);
+    return setDoc(ref, { theme }, { merge: true });
+};
+
+export const markTutorialSeen = async (userId: string) => {
+    const ref = doc(db, "userSettings", userId);
+    return setDoc(ref, { tutorialSeen: true }, { merge: true });
+}
+
 export const saveUserCategories = async (userId: string, categories: Category[]) => {
     const ref = doc(db, "userSettings", userId);
     return setDoc(ref, { categories }, { merge: true });
+};
+
+// --- Price History Services ---
+
+// Save a map of { normalizedItemName: price } to the user's history
+export const updatePriceHistory = async (userId: string, items: ShoppingItem[]) => {
+    const pricesToUpdate: Record<string, number> = {};
+    
+    items.forEach(item => {
+        // Only update if completed and price exists
+        if (item.completed && item.price !== undefined && item.price > 0) {
+            // Normalize key: lowercase and trimmed to be consistent
+            const key = item.name.trim().toLowerCase().replace(/[.#$\[\]]/g, ''); // Remove chars invalid in Firestore keys
+            pricesToUpdate[key] = item.price;
+        }
+    });
+
+    if (Object.keys(pricesToUpdate).length === 0) return;
+
+    const ref = doc(db, "priceHistory", userId);
+    // Merge true ensures we don't overwrite other items' history
+    return setDoc(ref, pricesToUpdate, { merge: true });
+};
+
+// Fetch the last known price for a specific item name
+export const getLastItemPrice = async (userId: string, itemName: string): Promise<number | null> => {
+    try {
+        const ref = doc(db, "priceHistory", userId);
+        const snapshot = await getDoc(ref);
+        
+        if (snapshot.exists()) {
+            const data = snapshot.data();
+            const key = itemName.trim().toLowerCase().replace(/[.#$\[\]]/g, '');
+            return data[key] || null;
+        }
+    } catch (e) {
+        console.error("Error fetching price history", e);
+    }
+    return null;
 };
 
 // --- History / Audit Log Services ---
@@ -237,10 +356,14 @@ export const addHistoryLog = async (
 };
 
 export const subscribeToHistory = (userId: string, callback: (logs: HistoryLog[]) => void) => {
-  // Client-side sort/limit to avoid index issues
+  // Optimized Query: Sort and Limit on Server Side
+  // IMPORTANT: This may require creating an index in Firebase Console.
+  // URL to create index will appear in console error if missing.
   const q = query(
       collection(db, "historyLogs"), 
-      where("userId", "==", userId)
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc"),
+      limit(50)
   );
 
   return onSnapshot(q, (snapshot: any) => {
@@ -249,11 +372,12 @@ export const subscribeToHistory = (userId: string, callback: (logs: HistoryLog[]
       logs.push({ id: doc.id, ...doc.data() } as HistoryLog);
     });
     
-    // Client-side sort: Newest first
+    // Client-side sort fallback (just in case)
     logs.sort((a, b) => b.createdAt - a.createdAt);
     
-    // Client-side limit
-    callback(logs.slice(0, 50));
+    callback(logs);
+  }, (error) => {
+      console.error("History subscription error (Check if Index exists):", error);
   });
 };
 

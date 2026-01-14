@@ -23,6 +23,7 @@ const PlusIcon = () => (
 export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart, isProcessing, actionButton, isViewer }) => {
   const [inputValue, setInputValue] = useState('');
   const [mode, setMode] = useState<'simple' | 'smart'>('simple');
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,22 +31,28 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
     if (!inputValue.trim() || isProcessing) return;
 
     const val = inputValue.trim();
-    setInputValue(''); // Clear immediately for better UX
+    setError(null);
     
     if (mode === 'smart') {
       try {
         await onAddSmart(val);
+        setInputValue(''); // Only clear if successful
       } catch (e) {
-        // If it fails, we might want to restore the input, but simpler for now just to alert in App
+        console.error(e);
+        setError("Não entendi o pedido. Tente simplificar.");
       } finally {
         setMode('simple');
       }
     } else {
       onAddSimple(val);
+      setInputValue('');
     }
   };
 
   useEffect(() => {
+    // Reset error when user types
+    if (error && inputValue) setError(null);
+
     const lowerVal = inputValue.toLowerCase();
     const isSmartCandidate = 
       inputValue.length > 25 || 
@@ -59,20 +66,20 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
     } else if (!isSmartCandidate && inputValue.length === 0) {
       setMode('simple');
     }
-  }, [inputValue, mode]);
+  }, [inputValue, mode, error]);
 
   // If viewer, show nothing or just the action button (like complete?)
   // Usually Viewers can't complete items either, so we just return null or a simplified view
   if (isViewer) {
       return (
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-200 z-50 text-center text-gray-500 text-sm">
+          <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-50 text-center text-gray-500 dark:text-gray-400 text-sm">
              Você está no modo Leitor.
           </div>
       );
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-200 z-50">
+    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-50">
       <div className="max-w-3xl mx-auto relative">
         
         {/* Floating Action Button Slot (Positioned relative to this container) */}
@@ -94,9 +101,11 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={mode === 'smart' ? "Descreva o que precisa..." : "Adicionar item..."}
               className={`w-full pl-10 pr-4 py-3.5 rounded-2xl border-2 outline-none text-base transition-all duration-300 ${
-                mode === 'smart' 
-                  ? 'border-purple-200 bg-purple-50 focus:border-purple-400 text-purple-900 placeholder-purple-300' 
-                  : 'border-gray-200 bg-gray-50 focus:border-gray-400 focus:bg-white text-gray-800'
+                error 
+                  ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-400 placeholder-red-300'
+                  : mode === 'smart' 
+                    ? 'border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-800 focus:border-purple-400 text-purple-900 dark:text-purple-100 placeholder-purple-300' 
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:border-gray-400 focus:bg-white dark:focus:bg-gray-800 text-gray-800 dark:text-white dark:placeholder-gray-400'
               }`}
               disabled={isProcessing}
             />
@@ -106,8 +115,8 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
             disabled={!inputValue.trim() || isProcessing}
             className={`p-3.5 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm ${
               mode === 'smart'
-                ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-200'
-                : 'bg-brand-600 hover:bg-brand-700 text-white shadow-brand-200'
+                ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-200/50'
+                : 'bg-brand-600 hover:bg-brand-700 text-white shadow-brand-200/50'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
              {isProcessing ? (
@@ -120,10 +129,17 @@ export const SmartInput: React.FC<SmartInputProps> = ({ onAddSimple, onAddSmart,
             )}
           </button>
         </form>
-         <div className={`text-xs text-center mt-2 h-4 transition-all duration-300 ${mode === 'smart' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
-            <span className="text-purple-600 font-medium flex items-center justify-center gap-1">
-              <SparklesIcon className="w-3 h-3" /> IA detectada: criando lista inteligente...
-            </span>
+         
+         <div className="text-xs text-center mt-2 h-4 relative">
+             {error ? (
+                <span className="text-red-500 font-medium animate-fade-in absolute inset-0">
+                    {error}
+                </span>
+             ) : (
+                <span className={`text-purple-600 dark:text-purple-300 font-medium flex items-center justify-center gap-1 transition-all duration-300 absolute inset-0 ${mode === 'smart' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+                    <SparklesIcon className="w-3 h-3" /> IA detectada: criando lista inteligente...
+                </span>
+             )}
         </div>
       </div>
     </div>

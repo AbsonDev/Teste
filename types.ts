@@ -66,14 +66,14 @@ export interface Category {
 }
 
 export const COLOR_PALETTES: CategoryColor[] = [
-  { id: 'green', bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
-  { id: 'blue', bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
-  { id: 'red', bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' },
-  { id: 'yellow', bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' },
-  { id: 'purple', bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-200' },
-  { id: 'gray', bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' },
-  { id: 'pink', bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' },
-  { id: 'orange', bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-200' },
+  { id: 'green', bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-800 dark:text-green-300', border: 'border-green-200 dark:border-green-800' },
+  { id: 'blue', bg: 'bg-blue-100 dark:bg-blue-900/40', text: 'text-blue-800 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' },
+  { id: 'red', bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-800 dark:text-red-300', border: 'border-red-200 dark:border-red-800' },
+  { id: 'yellow', bg: 'bg-yellow-100 dark:bg-yellow-900/40', text: 'text-yellow-800 dark:text-yellow-300', border: 'border-yellow-200 dark:border-yellow-800' },
+  { id: 'purple', bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-800 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800' },
+  { id: 'gray', bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-800 dark:text-gray-300', border: 'border-gray-200 dark:border-gray-700' },
+  { id: 'pink', bg: 'bg-pink-100 dark:bg-pink-900/40', text: 'text-pink-800 dark:text-pink-300', border: 'border-pink-200 dark:border-pink-800' },
+  { id: 'orange', bg: 'bg-orange-100 dark:bg-orange-900/40', text: 'text-orange-800 dark:text-orange-300', border: 'border-orange-200 dark:border-orange-800' },
 ];
 
 export const DEFAULT_CATEGORIES: Category[] = [

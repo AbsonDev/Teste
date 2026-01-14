@@ -5,21 +5,38 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const MODEL_NAME = 'gemini-3-flash-preview';
 
-export const generateSmartList = async (prompt: string, availableCategories: string[]): Promise<Partial<ShoppingItem>[]> => {
+// Helper for Exponential Backoff Retry
+const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+    try {
+        return await fn();
+    } catch (error) {
+        if (retries <= 0) throw error;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return callWithRetry(fn, retries - 1, delay * 2);
+    }
+};
+
+export const generateSmartList = async (prompt: string, availableCategories: string[], pantryItems: string[] = []): Promise<Partial<ShoppingItem>[]> => {
   try {
     const categoriesStr = availableCategories.join(', ');
+    const pantryStr = pantryItems.length > 0 ? pantryItems.join(', ') : "Nothing";
 
-    const response = await ai.models.generateContent({
+    // Use retry logic for the API call
+    const response = await callWithRetry(() => ai.models.generateContent({
       model: MODEL_NAME,
-      contents: `User request: "${prompt}". 
+      contents: `
+      User Request: "${prompt}".
       
-      Task: Extract a list of shopping items from the user request. 
-      If the user asks for a recipe (e.g., "ingredients for carrot cake"), list the necessary ingredients.
-      
-      Categorization Rules:
-      1. Assign one of the following exact category names to each item: ${categoriesStr}.
-      2. If an item doesn't fit well, use the category "Outros" (or similar general category from the list provided).
-      3. Translate item names to Portuguese if they are in another language.`,
+      Context - User's Current Pantry (Items they already have): [${pantryStr}].
+
+      Task: Create a shopping list based on the user request.
+
+      Logic Rules:
+      1. RECIPE MODE: If the user asks for a dish/recipe (e.g., "Lasagna", "Carrot Cake", "Dinner for 2"), list ALL necessary ingredients BUT EXCLUDE items that are already in the Pantry context. Only list what is MISSING.
+      2. DIRECT MODE: If the user explicitly lists items to buy (e.g., "Buy milk and eggs", "Soap, water"), IGNORE the Pantry and add them exactly as requested.
+      3. Categorize every item into one of these exact categories: ${categoriesStr}. If uncertain, use "Outros".
+      4. Translate item names to Portuguese if necessary.
+      `,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -27,23 +44,28 @@ export const generateSmartList = async (prompt: string, availableCategories: str
           items: {
             type: Type.OBJECT,
             properties: {
-              name: { type: Type.STRING, description: "The name of the item" },
-              category: { type: Type.STRING, description: "The category of the item (must be one of the provided options)" }
+              name: { type: Type.STRING, description: "The name of the item to buy" },
+              category: { type: Type.STRING, description: "The category of the item" },
+              quantity: { type: Type.NUMBER, description: "Estimated quantity needed (default to 1)" }
             },
             required: ["name", "category"]
           }
         }
       }
-    });
+    }));
 
     const jsonText = response.text;
     if (!jsonText) return [];
 
-    const parsedItems = JSON.parse(jsonText) as { name: string; category: string }[];
+    // Robust JSON Parsing: Remove Markdown blocks if present
+    const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    const parsedItems = JSON.parse(cleanJson) as { name: string; category: string; quantity?: number }[];
     
     return parsedItems.map(item => ({
       name: item.name,
       category: item.category,
+      quantity: item.quantity || 1,
       completed: false,
       createdAt: Date.now()
     }));
