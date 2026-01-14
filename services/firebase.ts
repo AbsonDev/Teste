@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -9,7 +8,25 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged
 } from "firebase/auth";
-import * as firestore from "firebase/firestore";
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  arrayUnion, 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  getDoc, 
+  getDocs, 
+  writeBatch, 
+  runTransaction 
+} from "firebase/firestore";
 import { 
   getMessaging, 
   getToken, 
@@ -20,29 +37,9 @@ import {
   fetchAndActivate, 
   getBoolean 
 } from "firebase/remote-config";
-import { getAnalytics, logEvent } from "firebase/analytics";
+import { getAnalytics, logEvent, setUserId, setUserProperties } from "firebase/analytics";
 import { getPerformance } from "firebase/performance";
 import { ShoppingListGroup, Category, Invite, Role, HistoryLog, ShoppingItem } from "../types";
-
-const {
-  getFirestore,
-  collection, 
-  doc, 
-  setDoc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
-  onSnapshot, 
-  writeBatch, 
-  arrayUnion,
-  runTransaction
-} = firestore;
 
 const STORAGE_KEY = 'firebase_config';
 
@@ -94,7 +91,6 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Initialize Firestore
-// Fallback to standard getFirestore to avoid v10/v9 compatibility issues with persistentLocalCache
 export const db = getFirestore(app);
 
 // --- Analytics & Performance ---
@@ -122,6 +118,32 @@ export const logUserEvent = (eventName: string, params?: Record<string, any>) =>
   } catch (e) {
     // Fail silently in production
     if (getEnv('NODE_ENV') === 'development') console.error("Analytics Error:", e);
+  }
+};
+
+export const setAnalyticsUser = (id: string | null) => {
+  try {
+    if (analytics) {
+        setUserId(analytics, id);
+    }
+    if (getEnv('NODE_ENV') === 'development') {
+        console.log(`[Analytics] setUserId: ${id}`);
+    }
+  } catch (e) {
+    console.warn("Analytics Error (setUserId):", e);
+  }
+};
+
+export const setAnalyticsUserProperties = (props: { [key: string]: any }) => {
+  try {
+    if (analytics) {
+        setUserProperties(analytics, props);
+    }
+    if (getEnv('NODE_ENV') === 'development') {
+        console.log(`[Analytics] User Props:`, props);
+    }
+  } catch (e) {
+    console.warn("Analytics Error (setUserProps):", e);
   }
 };
 

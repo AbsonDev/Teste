@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { logUserEvent } from '../services/firebase';
+import { ShoppingItem } from '../types';
 
 interface CompleteListModalProps {
   isOpen: boolean;
@@ -7,6 +8,7 @@ interface CompleteListModalProps {
   onConfirm: (archiveList: boolean, addToPantry: boolean) => void;
   totalItems: number;
   totalValue: number;
+  purchasedItems?: ShoppingItem[];
 }
 
 const formatCurrency = (val: number) => {
@@ -18,12 +20,39 @@ export const CompleteListModal: React.FC<CompleteListModalProps> = ({
   onClose,
   onConfirm,
   totalItems,
-  totalValue
+  totalValue,
+  purchasedItems = []
 }) => {
   const [archiveList, setArchiveList] = useState(true);
   const [addToPantry, setAddToPantry] = useState(true);
 
   if (!isOpen) return null;
+
+  const handleConfirm = () => {
+      // Generate a unique ID for this shopping trip
+      const tripId = `trip_${Date.now()}`;
+
+      // CRITICAL UPDATE: 
+      // We use a custom event name 'shopping_list_completed' instead of the standard 'purchase'.
+      // Standard 'purchase' would inflate app revenue metrics with grocery store spending.
+      // We also rename 'value' to 'estimated_value' to ensure GA4 doesn't auto-sum it as revenue.
+      logUserEvent('shopping_list_completed', {
+        trip_id: tripId,
+        estimated_value: totalValue, 
+        total_items: totalItems,
+        added_to_pantry: addToPantry,
+        // We keep the items array for BigQuery analysis/Custom Dimensions, 
+        // but it won't trigger standard e-commerce reports.
+        items: purchasedItems.map(item => ({
+            item_id: item.id,
+            item_name: item.name,
+            item_category: item.category || 'Outros',
+            quantity: item.quantity || 1
+        }))
+      });
+
+      onConfirm(archiveList, addToPantry);
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -92,14 +121,7 @@ export const CompleteListModal: React.FC<CompleteListModalProps> = ({
         </div>
 
         <button 
-          onClick={() => {
-              logUserEvent('purchase_completed', { 
-                  value: totalValue, 
-                  items_count: totalItems,
-                  added_to_pantry: addToPantry
-              });
-              onConfirm(archiveList, addToPantry);
-          }}
+          onClick={handleConfirm}
           className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-green-200 hover:bg-green-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
         >
           <span>Confirmar</span>

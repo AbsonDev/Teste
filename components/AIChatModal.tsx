@@ -199,8 +199,12 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({
           setMessages(prev => [...prev, { id: Date.now().toString() + 'r', role: 'model', text: modelText }]);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat Error", error);
+      logUserEvent('ai_error', { 
+        error_message: error.message, 
+        prompt_context: 'chat_modal' 
+      });
       setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Desculpe, tive um erro ao processar. Tente novamente." }]);
     } finally {
       setIsLoading(false);
